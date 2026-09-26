@@ -1,0 +1,174 @@
+{
+  "common": {
+    "continue": "Continue",
+    "login": "Log in",
+    "createAccount": "Create account",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "retry": "Retry",
+    "seeAll": "See all",
+    "amount": "Amount",
+    "fees": "Fees",
+    "total": "Total",
+    "reference": "Transaction reference (optional)",
+    "note": "Note (optional)",
+    "save": "Save",
+    "delete": "Delete",
+    "close": "Close",
+    "edit": "Edit",
+    "loading": "Loading…",
+    "yes": "Yes",
+    "no": "No"
+  },
+
+  "onboarding": {
+    "tagline": "Fast, secure and reliable money transfer.",
+    "chooseLanguage": "Choose your preferred language to continue.",
+    "welcomeTitle": "Welcome to Zender237",
+    "welcomeSubtitle": "The simple and secure way to send and receive money."
+  },
+
+  "auth": {
+    "createAccountTitle": "Create account",
+    "whatsappNumber": "WhatsApp number",
+    "username": "Username",
+    "country": "Country",
+    "secretCode": "Secret code (6 digits)",
+    "otpTitle": "OTP verification",
+    "otpSubtitle": "Enter the 6-digit code sent on WhatsApp",
+    "resendIn": "Resend code in",
+    "personalInfoTitle": "Personal information",
+    "fullName": "Full name",
+    "accountCreated": "Account created successfully!"
+  },
+
+  "dashboard": {
+    "greeting": "Hello",
+    "availableBalance": "Available balance",
+    "pendingBalance": "Pending balance",
+    "recentTransactions": "Recent transactions"
+  },
+
+  "deposit": {
+    "title": "New top-up",
+    "chooseNumber": "Choose a number",
+    "senderName": "Payer name",
+    "senderPhone": "Payer number",
+    "sendProof": "Send proof",
+    "pending": "Top-up pending",
+    "confirmed": "Top-up confirmed!",
+    "rejected": "Top-up rejected"
+  },
+
+  "transfer": {
+    "title": "New transfer",
+    "destinationCountry": "Destination country",
+    "method": "Method",
+    "recipient": "Recipient",
+    "pending": "Transfer in progress",
+    "confirmed": "Transfer successful!",
+    "rejected": "Transfer rejected"
+  },
+
+  "withdrawal": {
+    "title": "New withdrawal",
+    "method": "Withdrawal method",
+    "pending": "Withdrawal pending",
+    "confirmed": "Withdrawal completed!",
+    "rejected": "Withdrawal rejected"
+  },
+
+  "status": {
+    "pending_proof": "Incomplete",
+    "under_review": "Pending",
+    "confirmed": "Confirmed",
+    "rejected": "Rejected",
+    "cancelled": "Cancelled"
+  },
+
+  "profile": {
+    "language": "Language",
+    "security": "Security",
+    "preferences": "Preferences",
+    "personalInfo": "Personal information",
+    "help": "Help center",
+    "support": "Contact / Support",
+    "logout": "Log out",
+    "pushNotifications": "Push notifications",
+    "whatsappNotifications": "WhatsApp notifications",
+    "rank": "Rank",
+    "standard": "Standard",
+    "bronze": "Bronze",
+    "silver": "Silver",
+    "gold": "Gold"
+  },
+
+  "security": {
+    "title": "Security",
+    "changeCode": "Change secret code",
+    "biometric": "Biometric authentication",
+    "connectedDevices": "Connected devices",
+    "biometricEnable": "Enable biometric authentication",
+    "biometricDisable": "Disable biometric authentication",
+    "biometricUnavailable": "Biometrics are not available on this device.",
+    "biometricEnabled": "Biometric authentication enabled.",
+    "biometricDisabled": "Biometric authentication disabled.",
+    "currentDevice": "Current device",
+    "sessionActive": "Active session",
+    "sessionInfo": "Advanced device management will be available with session tracking.",
+    "logout": "Log out"
+  },
+
+  "language": {
+    "title": "Language",
+    "french": "French",
+    "english": "English",
+    "saved": "Language updated."
+  },
+
+  "loans": {
+    "title": "Loans",
+    "money": "Money loan",
+    "flight": "Flight ticket loan",
+    "chooseType": "Choose the loan type",
+    "amount": "Requested amount",
+    "fullName": "Full name",
+    "phone": "Phone number",
+    "whatsapp": "WhatsApp number",
+    "frontId": "Identity document — front",
+    "backId": "Identity document — back",
+    "takeFront": "Take front photo",
+    "takeBack": "Take back photo",
+    "summary": "Application summary",
+    "rank": "Your rank",
+    "repayment": "Repayment duration",
+    "accommodation": "Accommodation included",
+    "months": "months",
+    "month": "month",
+    "submit": "Submit application",
+    "submitted": "Application submitted",
+    "submittedMessage": "Your application has been recorded. The administration will continue the discussion with you on WhatsApp.",
+    "adminContact": "The Zender237 team will contact you on WhatsApp.",
+    "cameraPermission": "Camera access is required to photograph the identity document.",
+    "retake": "Retake photo"
+  },
+
+  "admin": {
+    "rankRules": "Rank rules",
+    "rankRule": "Rank rule",
+    "minVolume": "Minimum transaction threshold",
+    "maxVolume": "Maximum threshold",
+    "unlimited": "Unlimited",
+    "moneyRepayment": "Money-loan repayment",
+    "flightRepayment": "Flight-loan repayment",
+    "accommodation": "Accommodation",
+    "loans": "Loans",
+    "deleteMomo": "Delete this Mobile Money number?",
+    "deleteMomoWarning": "This action is irreversible when the number is not referenced by any transaction."
+  },
+
+  "help": {
+    "depositQuestion": "How do I make a top-up?",
+    "depositAnswer": "From Home, tap \"Top-up\", choose an amount and a Mobile Money number, then send your payment proof."
+  }
+}

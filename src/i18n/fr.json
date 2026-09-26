@@ -1,0 +1,174 @@
+{
+  "common": {
+    "continue": "Continuer",
+    "login": "Se connecter",
+    "createAccount": "Créer un compte",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "retry": "Réessayer",
+    "seeAll": "Voir tout",
+    "amount": "Montant",
+    "fees": "Frais",
+    "total": "Total",
+    "reference": "Référence de transaction (facultative)",
+    "note": "Note (optionnel)",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "close": "Fermer",
+    "edit": "Modifier",
+    "loading": "Chargement…",
+    "yes": "Oui",
+    "no": "Non"
+  },
+
+  "onboarding": {
+    "tagline": "Transfert d'argent rapide, sécurisé et fiable.",
+    "chooseLanguage": "Choisissez votre langue préférée pour continuer.",
+    "welcomeTitle": "Bienvenue sur Zender237",
+    "welcomeSubtitle": "La solution simple et sécurisée pour envoyer et recevoir de l'argent."
+  },
+
+  "auth": {
+    "createAccountTitle": "Créer un compte",
+    "whatsappNumber": "Numéro WhatsApp",
+    "username": "Nom d'utilisateur",
+    "country": "Pays",
+    "secretCode": "Code secret (6 chiffres)",
+    "otpTitle": "Vérification OTP",
+    "otpSubtitle": "Entrez le code à 6 chiffres envoyé sur WhatsApp",
+    "resendIn": "Renvoyer le code dans",
+    "personalInfoTitle": "Informations personnelles",
+    "fullName": "Nom complet",
+    "accountCreated": "Compte créé avec succès !"
+  },
+
+  "dashboard": {
+    "greeting": "Bonjour",
+    "availableBalance": "Solde disponible",
+    "pendingBalance": "Solde en attente",
+    "recentTransactions": "Transactions récentes"
+  },
+
+  "deposit": {
+    "title": "Nouvelle recharge",
+    "chooseNumber": "Choisir un numéro",
+    "senderName": "Nom du payeur",
+    "senderPhone": "Numéro du payeur",
+    "sendProof": "Envoyer la preuve",
+    "pending": "Recharge en attente",
+    "confirmed": "Recharge confirmée !",
+    "rejected": "Recharge rejetée"
+  },
+
+  "transfer": {
+    "title": "Nouveau transfert",
+    "destinationCountry": "Pays de destination",
+    "method": "Méthode",
+    "recipient": "Destinataire",
+    "pending": "Transfert en cours",
+    "confirmed": "Transfert réussi !",
+    "rejected": "Transfert rejeté"
+  },
+
+  "withdrawal": {
+    "title": "Nouveau retrait",
+    "method": "Méthode de retrait",
+    "pending": "Retrait en attente",
+    "confirmed": "Retrait effectué !",
+    "rejected": "Retrait rejeté"
+  },
+
+  "status": {
+    "pending_proof": "À compléter",
+    "under_review": "En attente",
+    "confirmed": "Confirmé",
+    "rejected": "Rejeté",
+    "cancelled": "Annulé"
+  },
+
+  "profile": {
+    "language": "Langue",
+    "security": "Sécurité",
+    "preferences": "Préférences",
+    "personalInfo": "Informations personnelles",
+    "help": "Centre d'aide",
+    "support": "Contact / Support",
+    "logout": "Se déconnecter",
+    "pushNotifications": "Notifications push",
+    "whatsappNotifications": "Notifications WhatsApp",
+    "rank": "Rang",
+    "standard": "Standard",
+    "bronze": "Bronze",
+    "silver": "Silver",
+    "gold": "Gold"
+  },
+
+  "security": {
+    "title": "Sécurité",
+    "changeCode": "Changer le code secret",
+    "biometric": "Authentification biométrique",
+    "connectedDevices": "Appareils connectés",
+    "biometricEnable": "Activer l'authentification biométrique",
+    "biometricDisable": "Désactiver l'authentification biométrique",
+    "biometricUnavailable": "La biométrie n'est pas disponible sur cet appareil.",
+    "biometricEnabled": "Authentification biométrique activée.",
+    "biometricDisabled": "Authentification biométrique désactivée.",
+    "currentDevice": "Appareil actuel",
+    "sessionActive": "Session active",
+    "sessionInfo": "La gestion avancée des appareils sera disponible avec le suivi des sessions.",
+    "logout": "Déconnexion"
+  },
+
+  "language": {
+    "title": "Langue",
+    "french": "Français",
+    "english": "English",
+    "saved": "Langue mise à jour."
+  },
+
+  "loans": {
+    "title": "Prêts",
+    "money": "Prêt d'argent",
+    "flight": "Prêt de billet d'avion",
+    "chooseType": "Choisissez le type de prêt",
+    "amount": "Montant demandé",
+    "fullName": "Nom complet",
+    "phone": "Numéro de téléphone",
+    "whatsapp": "Numéro WhatsApp",
+    "frontId": "Pièce d'identité — recto",
+    "backId": "Pièce d'identité — verso",
+    "takeFront": "Prendre le recto",
+    "takeBack": "Prendre le verso",
+    "summary": "Résumé de la demande",
+    "rank": "Votre rang",
+    "repayment": "Durée de remboursement",
+    "accommodation": "Hébergement inclus",
+    "months": "mois",
+    "month": "mois",
+    "submit": "Soumettre la demande",
+    "submitted": "Demande envoyée",
+    "submittedMessage": "Votre demande a été enregistrée. L'administration poursuivra les échanges avec vous sur WhatsApp.",
+    "adminContact": "L'équipe Zender237 vous contactera sur WhatsApp.",
+    "cameraPermission": "L'accès à la caméra est nécessaire pour photographier la pièce d'identité.",
+    "retake": "Reprendre la photo"
+  },
+
+  "admin": {
+    "rankRules": "Règles des rangs",
+    "rankRule": "Règle de rang",
+    "minVolume": "Seuil minimum de transactions",
+    "maxVolume": "Seuil maximum",
+    "unlimited": "Illimité",
+    "moneyRepayment": "Remboursement prêt d'argent",
+    "flightRepayment": "Remboursement prêt billet",
+    "accommodation": "Hébergement",
+    "loans": "Prêts",
+    "deleteMomo": "Supprimer ce numéro Mobile Money ?",
+    "deleteMomoWarning": "Cette action est irréversible si le numéro n'est référencé par aucune transaction."
+  },
+
+  "help": {
+    "depositQuestion": "Comment effectuer une recharge ?",
+    "depositAnswer": "Depuis l'accueil, appuyez sur \"Recharge\", choisissez un montant et un numéro Mobile Money, puis envoyez la preuve de paiement."
+  }
+}

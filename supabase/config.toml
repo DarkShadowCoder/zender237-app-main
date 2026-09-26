@@ -1,0 +1,17 @@
+[functions.login]
+verify_jwt = false
+
+[functions.send-otp]
+verify_jwt = false
+
+[functions.check-availability]
+verify_jwt = false
+
+[functions.verify-otp]
+verify_jwt = false
+
+[functions.complete-registration]
+verify_jwt = false
+
+[functions.reset-secret-code]
+verify_jwt = false

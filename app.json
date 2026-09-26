@@ -1,0 +1,68 @@
+{
+  "expo": {
+    "name": "Zender237",
+    "slug": "zender237",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "zender237",
+    "splash": {
+      "image": "./assets/images/loader.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#020D33"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.zender237.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#1F63F2"
+      },
+      "package": "com.zender237.app",
+      "permissions": [
+        "android.permission.NOTIFICATIONS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/images/loader.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Zender237 a besoin d'accéder à vos photos pour téléverser une preuve de paiement."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "transactions",
+          "color": "#1F63F2"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Zender237 utilise votre position uniquement pendant un transfert pour déterminer votre pays et appliquer le tarif correspondant."
+        }
+      ]
+    ],
+    "extra": {
+      "supabaseUrl": "https://mrnfofhaubmlxlsimxvc.supabase.co",
+      "supabaseAnonKey": "sb_publishable_OcT43EJFCw9yNIzKGCnvVw_orUe6VBD",
+      "eas": {
+        "projectId": "94d5aba9-7703-4f6e-8c03-6e15cb53a194"
+      }
+    }
+  }
+}
