@@ -2,9 +2,14 @@
  * Notifications in-app + notifications push Expo.
  *
  * Les notifications métier sont créées côté PostgreSQL dans
- * `notifications_log`. Une table `push_tokens` associe chaque
- * appareil à son compte (utilisateur, administrateur, partenaire
- * ou KmAdministrateur). PostgreSQL envoie ensuite le push à Expo.
+ * `notifications_log`.
+ *
+ * Un token push peut appartenir à :
+ *
+ * - user
+ * - admin
+ * - partner
+ * - kmerdiaspora_admin
  */
 
 import * as Notifications from 'expo-notifications';
@@ -12,19 +17,30 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-import { supabase } from '../lib/supabase';
+import {
+  supabase,
+} from '../lib/supabase';
 
 
 export const TRANSACTION_NOTIFICATION_CHANNEL =
   'transactions';
 
+export const GENERAL_NOTIFICATION_CHANNEL =
+  'default';
+
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+  handleNotification:
+    async () => ({
+      shouldShowAlert:
+        true,
+
+      shouldPlaySound:
+        true,
+
+      shouldSetBadge:
+        false,
+    }),
 });
 
 
@@ -38,93 +54,175 @@ function getExpoProjectId() {
 
 
 export async function configureNotificationChannels() {
-  if (Platform.OS !== 'android') {
+  if (
+    Platform.OS !==
+    'android'
+  ) {
     return;
   }
+
 
   await Notifications.setNotificationChannelAsync(
     TRANSACTION_NOTIFICATION_CHANNEL,
     {
-      name: 'Transactions',
+      name:
+        'Transactions',
+
       description:
-        'Notifications concernant les dépôts, transferts et retraits.',
+        'Notifications concernant les dépôts, transferts, retraits et leur traitement.',
+
       importance:
         Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      sound: 'default',
-      enableVibrate: true,
-      enableLights: true,
+
+      vibrationPattern:
+        [
+          0,
+          250,
+          250,
+          250,
+        ],
+
+      sound:
+        'default',
+
+      enableVibrate:
+        true,
+
+      enableLights:
+        true,
     }
   );
 
+
   await Notifications.setNotificationChannelAsync(
-    'default',
+    GENERAL_NOTIFICATION_CHANNEL,
     {
-      name: 'Notifications Zender237',
+      name:
+        'Notifications Zender237',
+
+      description:
+        'Notifications générales de Zender237 et KmerDiaspora.',
+
       importance:
         Notifications.AndroidImportance.DEFAULT,
-      vibrationPattern: [0, 200],
-      sound: 'default',
+
+      vibrationPattern:
+        [
+          0,
+          200,
+        ],
+
+      sound:
+        'default',
     }
   );
 }
 
 
 /**
- * Enregistre un token Expo Push pour le compte authentifié.
- *
- * accountType : user | admin | partner | kmerdiaspora_admin
- * accountId   : id dans la table métier correspondante
- * authUserId  : id de auth.users
+ * Enregistre le token Expo Push
+ * pour le compte authentifié.
  */
 export async function registerForPushNotifications({
   accountType,
   accountId,
   authUserId,
 }) {
-  if (!Device.isDevice || !authUserId) {
+  if (
+    !Device.isDevice ||
+    !authUserId ||
+    !accountType
+  ) {
     return null;
   }
 
+
   await configureNotificationChannels();
 
+
   const {
-    status: existingStatus,
-  } = await Notifications.getPermissionsAsync();
+    status:
+      existingStatus,
+  } =
+    await Notifications.getPermissionsAsync();
+
 
   let finalStatus =
     existingStatus;
 
-  if (existingStatus !== 'granted') {
+
+  if (
+    existingStatus !==
+    'granted'
+  ) {
     const {
       status,
-    } = await Notifications.requestPermissionsAsync();
+    } =
+      await Notifications.requestPermissionsAsync();
 
-    finalStatus = status;
+    finalStatus =
+      status;
   }
 
-  if (finalStatus !== 'granted') {
-    return null;
+
+  if (
+    finalStatus !==
+    'granted'
+  ) {
+    const error =
+      new Error(
+        'Permission de notification refusée sur cet appareil.'
+      );
+
+    error.code =
+      'PUSH_PERMISSION_DENIED';
+
+    throw error;
   }
+
 
   const projectId =
     getExpoProjectId();
 
+
   if (!projectId) {
-    const error = new Error(
-      'Project ID Expo/EAS introuvable. Vérifiez extra.eas.projectId dans app.json.'
-    );
+    const error =
+      new Error(
+        'Project ID Expo/EAS introuvable. Vérifiez extra.eas.projectId dans app.json.'
+      );
+
     error.code =
       'EXPO_PROJECT_ID_MISSING';
+
     throw error;
   }
 
-  const token =
-    (
-      await Notifications.getExpoPushTokenAsync({
-        projectId,
-      })
-    ).data;
+
+  let token;
+
+
+  try {
+    token =
+      (
+        await Notifications.getExpoPushTokenAsync({
+          projectId,
+        })
+      ).data;
+
+  } catch (error) {
+    const wrapped =
+      new Error(
+        error?.message ||
+        'Impossible d’obtenir le token Expo Push.'
+      );
+
+    wrapped.code =
+      error?.code ||
+      'EXPO_PUSH_TOKEN_FAILED';
+
+    throw wrapped;
+  }
+
 
   if (!token) {
     throw new Error(
@@ -132,12 +230,18 @@ export async function registerForPushNotifications({
     );
   }
 
+
   await savePushToken({
-    expoPushToken: token,
+    expoPushToken:
+      token,
+
     accountType,
+
     accountId,
+
     authUserId,
   });
+
 
   return token;
 }
@@ -145,8 +249,6 @@ export async function registerForPushNotifications({
 
 /**
  * Persiste le token via une RPC SECURITY DEFINER.
- * La RPC vérifie elle-même que accountId correspond bien
- * au compte de auth.uid().
  */
 export async function savePushToken({
   expoPushToken,
@@ -154,36 +256,47 @@ export async function savePushToken({
   accountId,
   authUserId,
 }) {
-  if (!expoPushToken || !authUserId) {
+  if (
+    !expoPushToken ||
+    !authUserId ||
+    !accountType
+  ) {
     return null;
   }
+
 
   const {
     data,
     error,
-  } = await supabase.rpc(
-    'register_push_token',
-    {
-      p_expo_push_token:
-        expoPushToken,
-      p_account_type:
-        accountType || null,
-      p_account_id:
-        accountId || null,
-    }
-  );
+  } =
+    await supabase.rpc(
+      'register_push_token',
+      {
+        p_expo_push_token:
+          expoPushToken,
+
+        p_account_type:
+          accountType,
+
+        p_account_id:
+          accountId ||
+          null,
+      }
+    );
+
 
   if (error) {
     throw error;
   }
 
-  return data || null;
+
+  return data ||
+    null;
 }
 
 
 /**
- * Désactive le token courant pour éviter qu'un appareil partagé
- * continue à recevoir les notifications de l'ancien compte.
+ * Désactive le token courant.
  */
 export async function unregisterCurrentPushToken(
   expoPushToken
@@ -192,15 +305,18 @@ export async function unregisterCurrentPushToken(
     return;
   }
 
+
   const {
     error,
-  } = await supabase.rpc(
-    'unregister_push_token',
-    {
-      p_expo_push_token:
-        expoPushToken,
-    }
-  );
+  } =
+    await supabase.rpc(
+      'unregister_push_token',
+      {
+        p_expo_push_token:
+          expoPushToken,
+      }
+    );
+
 
   if (error) {
     console.warn(
@@ -211,10 +327,61 @@ export async function unregisterCurrentPushToken(
 }
 
 
+function getNotificationRecipientConfig({
+  accountType,
+  userId,
+  accountId,
+}) {
+  switch (
+    accountType
+  ) {
+    case 'admin':
+      return {
+        column:
+          'admin_id',
+
+        id:
+          accountId,
+      };
+
+    case 'partner':
+      return {
+        column:
+          'partner_id',
+
+        id:
+          accountId,
+      };
+
+    case 'kmerdiaspora_admin':
+      return {
+        column:
+          'kmerdiaspora_admin_id',
+
+        id:
+          accountId,
+      };
+
+    case 'user':
+    default:
+      return {
+        column:
+          'user_id',
+
+        id:
+          userId ||
+          accountId,
+      };
+  }
+}
+
+
 const NOTIFICATION_SELECT = `
   id,
   user_id,
   admin_id,
+  partner_id,
+  kmerdiaspora_admin_id,
   transaction_id,
   channel,
   title,
@@ -232,63 +399,118 @@ const NOTIFICATION_SELECT = `
 
 export async function listNotifications({
   userId,
+  accountType,
+  accountId,
   limit = 100,
 }) {
-  if (!userId) {
+  const recipient =
+    getNotificationRecipientConfig({
+      accountType,
+      userId,
+      accountId,
+    });
+
+
+  if (
+    !recipient?.id
+  ) {
     return [];
   }
+
 
   const {
     data,
     error,
-  } = await supabase
-    .from('notifications_log')
-    .select(NOTIFICATION_SELECT)
-    .eq('user_id', userId)
-    .order('sent_at', {
-      ascending: false,
-    })
-    .limit(limit);
+  } =
+    await supabase
+      .from(
+        'notifications_log'
+      )
+      .select(
+        NOTIFICATION_SELECT
+      )
+      .eq(
+        recipient.column,
+        recipient.id
+      )
+      .order(
+        'sent_at',
+        {
+          ascending:
+            false,
+        }
+      )
+      .limit(
+        limit
+      );
+
 
   if (error) {
     throw error;
   }
 
-  return data || [];
+
+  return data ||
+    [];
 }
 
 
 export function subscribeToNotifications(
-  userId,
+  {
+    userId,
+    accountType,
+    accountId,
+  },
   onInsert
 ) {
-  if (!userId) {
+  const recipient =
+    getNotificationRecipientConfig({
+      accountType,
+      userId,
+      accountId,
+    });
+
+
+  if (
+    !recipient?.id
+  ) {
     return () => {};
   }
+
 
   const channel =
     supabase
       .channel(
-        `notifications-${userId}`
+        `notifications-${recipient.column}-${recipient.id}`
       )
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications_log',
+          event:
+            'INSERT',
+
+          schema:
+            'public',
+
+          table:
+            'notifications_log',
+
           filter:
-            `user_id=eq.${userId}`,
+            `${recipient.column}=eq.${recipient.id}`,
         },
+
         (payload) => {
-          if (payload?.new) {
-            onInsert(
+          if (
+            payload?.new
+          ) {
+            onInsert?.(
               payload.new
             );
           }
         }
       )
       .subscribe();
+
 
   return () => {
     supabase.removeChannel(
@@ -305,15 +527,23 @@ export async function markNotificationRead(
     return;
   }
 
+
   const {
     error,
-  } = await supabase
-    .from('notifications_log')
-    .update({
-      read_at:
-        new Date().toISOString(),
-    })
-    .eq('id', notificationId);
+  } =
+    await supabase
+      .from(
+        'notifications_log'
+      )
+      .update({
+        read_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        'id',
+        notificationId
+      );
+
 
   if (error) {
     throw error;
@@ -321,23 +551,46 @@ export async function markNotificationRead(
 }
 
 
-export async function markAllNotificationsRead(
-  userId
-) {
-  if (!userId) {
+export async function markAllNotificationsRead({
+  userId,
+  accountType,
+  accountId,
+}) {
+  const recipient =
+    getNotificationRecipientConfig({
+      accountType,
+      userId,
+      accountId,
+    });
+
+
+  if (
+    !recipient?.id
+  ) {
     return;
   }
 
+
   const {
     error,
-  } = await supabase
-    .from('notifications_log')
-    .update({
-      read_at:
-        new Date().toISOString(),
-    })
-    .eq('user_id', userId)
-    .is('read_at', null);
+  } =
+    await supabase
+      .from(
+        'notifications_log'
+      )
+      .update({
+        read_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        recipient.column,
+        recipient.id
+      )
+      .is(
+        'read_at',
+        null
+      );
+
 
   if (error) {
     throw error;

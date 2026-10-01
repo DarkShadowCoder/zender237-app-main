@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "271164737533",
+    "project_id": "zender237-13f9e",
+    "storage_bucket": "zender237-13f9e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:271164737533:android:f195ae4dc8a19d1112bb94",
+        "android_client_info": {
+          "package_name": "com.zender237.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA1WBYeRTDqmMDMHYcov-eGpe02TwFrKcw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -7,24 +7,32 @@
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "zender237",
+
     "splash": {
       "image": "./assets/images/loader.png",
       "resizeMode": "cover",
       "backgroundColor": "#020D33"
     },
+
     "assetBundlePatterns": [
       "**/*"
     ],
+
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.zender237.app"
     },
+
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#1F63F2"
       },
+
       "package": "com.zender237.app",
+
+      "googleServicesFile": "./google-services.json",
+
       "permissions": [
         "android.permission.NOTIFICATIONS",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -32,17 +40,21 @@
         "android.permission.RECORD_AUDIO"
       ]
     },
+
     "web": {
       "favicon": "./assets/images/loader.png"
     },
+
     "plugins": [
       "expo-secure-store",
+
       [
         "expo-image-picker",
         {
           "photosPermission": "Zender237 a besoin d'accéder à vos photos pour téléverser une preuve de paiement."
         }
       ],
+
       [
         "expo-notifications",
         {
@@ -50,6 +62,7 @@
           "color": "#1F63F2"
         }
       ],
+
       [
         "expo-location",
         {
@@ -57,9 +70,11 @@
         }
       ]
     ],
+
     "extra": {
       "supabaseUrl": "https://mrnfofhaubmlxlsimxvc.supabase.co",
       "supabaseAnonKey": "sb_publishable_OcT43EJFCw9yNIzKGCnvVw_orUe6VBD",
+
       "eas": {
         "projectId": "94d5aba9-7703-4f6e-8c03-6e15cb53a194"
       }

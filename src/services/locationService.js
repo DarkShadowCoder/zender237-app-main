@@ -2,15 +2,22 @@
  * Service de géolocalisation utilisé pour les transferts.
  *
  * Principe :
- * 1. L'utilisateur choisit d'abord son pays dans l'application.
- * 2. Le téléphone vérifie ensuite ce choix avec sa position.
- * 3. Le pays n'est enregistré dans `profiles.country`
- *    que si le contrôle passe.
  *
- * IMPORTANT :
- * Aucun appel GPS / géocodage ne doit bloquer indéfiniment
- * l'interface. Tous les appels sensibles disposent donc
- * d'un délai maximum.
+ * 1. L'utilisateur choisit d'abord son pays.
+ * 2. Le téléphone récupère sa position.
+ * 3. Le pays est détecté depuis la position.
+ * 4. Le profil est mis à jour uniquement si le pays choisi
+ *    correspond au pays détecté.
+ *
+ * Correction Android :
+ *
+ * Certains appareils font planter `reverseGeocodeAsync`
+ * avec :
+ *
+ *   NullPointerException:
+ *   getCountryCode (...) must not be null
+ *
+ * Dans ce cas, un reverse-geocoding HTTP de secours est utilisé.
  */
 
 import * as Location from 'expo-location';
@@ -20,45 +27,50 @@ import {
 } from '../lib/supabase';
 
 
-/*
- * ============================================================
- * PAYS
- * ============================================================
- */
-
 const COUNTRY_BY_ISO = {
-  CM: 'cameroun',
-  GN: 'guinee',
-  ML: 'mali',
+  CM:
+    'cameroun',
+
+  GN:
+    'guinee',
+
+  ML:
+    'mali',
 };
 
 
 const COUNTRY_ALIASES = {
-  cameroun: 'cameroun',
-  cameroon: 'cameroun',
+  cameroun:
+    'cameroun',
 
-  guinee: 'guinee',
-  guinea: 'guinee',
-  guine: 'guinee',
-  'guinée': 'guinee',
+  cameroon:
+    'cameroun',
 
-  mali: 'mali',
+  guinee:
+    'guinee',
+
+  guinea:
+    'guinee',
+
+  guine:
+    'guinee',
+
+  'guinée':
+    'guinee',
+
+  mali:
+    'mali',
 };
 
-
-/*
- * ============================================================
- * TEMPS MAXIMUM
- * ============================================================
- *
- * Ces limites empêchent un loader infini.
- */
 
 const LOCATION_TIMEOUT_MS =
   12000;
 
 const REVERSE_GEOCODE_TIMEOUT_MS =
   8000;
+
+const HTTP_REVERSE_GEOCODE_TIMEOUT_MS =
+  10000;
 
 const LAST_KNOWN_MAX_AGE_MS =
   2 * 60 * 1000;
@@ -67,17 +79,12 @@ const LAST_KNOWN_MAX_ACCURACY_METERS =
   50000;
 
 
-/*
- * ============================================================
- * OUTILS
- * ============================================================
- */
-
 function normalizeCountryText(
   value
 ) {
   return String(
-    value || ''
+    value ||
+      ''
   )
     .trim()
     .toLowerCase()
@@ -105,9 +112,6 @@ function buildLocationError(
 }
 
 
-/**
- * Exécute une promesse avec une durée maximale.
- */
 function withTimeout(
   promise,
   timeoutMs,
@@ -117,9 +121,13 @@ function withTimeout(
   let timeoutId =
     null;
 
+
   const timeoutPromise =
     new Promise(
-      (_, reject) => {
+      (
+        _,
+        reject
+      ) => {
         timeoutId =
           setTimeout(
             () => {
@@ -135,8 +143,11 @@ function withTimeout(
       }
     );
 
+
   return Promise.race([
-    promise.finally(
+    Promise.resolve(
+      promise
+    ).finally(
       () => {
         if (
           timeoutId
@@ -153,24 +164,25 @@ function withTimeout(
 }
 
 
-/**
- * Transforme l'adresse Expo en pays supporté.
- */
 function getCountryFromAddress(
   address
 ) {
   const isoCode =
     String(
       address?.countryCode ||
-        ''
+      address?.country_code ||
+      ''
     )
       .trim()
       .toUpperCase();
 
+
   const isoCountry =
     COUNTRY_BY_ISO[
       isoCode
-    ] || null;
+    ] ||
+    null;
+
 
   if (
     isoCountry
@@ -184,34 +196,31 @@ function getCountryFromAddress(
     };
   }
 
+
   const normalizedCountry =
     normalizeCountryText(
       address?.country
     );
 
+
   return {
     country:
       COUNTRY_ALIASES[
         normalizedCountry
-      ] || null,
+      ] ||
+      null,
 
     countryCode:
-      isoCode || null,
+      isoCode ||
+      null,
   };
 }
 
 
-/**
- * Récupère une position utilisable.
- *
- * On utilise d'abord une dernière position connue
- * lorsqu'elle est récente et suffisamment précise.
- *
- * Sinon on demande une vraie position actuelle.
- */
 async function getUsableLocation() {
   let lastKnown =
     null;
+
 
   try {
     lastKnown =
@@ -222,6 +231,7 @@ async function getUsableLocation() {
         requiredAccuracy:
           LAST_KNOWN_MAX_ACCURACY_METERS,
       });
+
   } catch (_) {
     lastKnown =
       null;
@@ -232,6 +242,7 @@ async function getUsableLocation() {
     Number(
       lastKnown?.timestamp
     );
+
 
   const lastKnownAccuracy =
     Number(
@@ -265,11 +276,6 @@ async function getUsableLocation() {
   }
 
 
-  /*
-   * Pas de position récente :
-   * on demande la position actuelle.
-   */
-
   try {
     return await withTimeout(
       Location.getCurrentPositionAsync({
@@ -286,6 +292,7 @@ async function getUsableLocation() {
 
       'La localisation prend trop de temps. Activez le GPS et réessayez.'
     );
+
   } catch (
     error
   ) {
@@ -305,32 +312,145 @@ async function getUsableLocation() {
 }
 
 
-/*
- * ============================================================
- * DÉTECTION DU PAYS
- * ============================================================
+/**
+ * Fallback reverse-geocoding HTTP.
+ *
+ * Le résultat contient normalement :
+ *
+ * address.country_code
+ * address.country
  */
+async function reverseGeocodeWithHttp(
+  latitude,
+  longitude
+) {
+  const url =
+    'https://nominatim.openstreetmap.org/reverse' +
+    `?format=jsonv2&lat=${encodeURIComponent(latitude)}` +
+    `&lon=${encodeURIComponent(longitude)}` +
+    '&zoom=3&addressdetails=1';
+
+
+  let response;
+
+
+  try {
+    response =
+      await withTimeout(
+        fetch(
+          url,
+          {
+            method:
+              'GET',
+
+            headers: {
+              Accept:
+                'application/json',
+
+              'Accept-Language':
+                'fr,en',
+
+              'User-Agent':
+                'Zender237/1.0 (mobile transfer country verification)',
+            },
+          }
+        ),
+
+        HTTP_REVERSE_GEOCODE_TIMEOUT_MS,
+
+        'GEOCODING_HTTP_TIMEOUT',
+
+        'La vérification du pays prend trop de temps. Vérifiez votre connexion puis réessayez.'
+      );
+
+  } catch (
+    error
+  ) {
+    if (
+      error?.code
+    ) {
+      throw error;
+    }
+
+    throw buildLocationError(
+      'GEOCODING_HTTP_FAILED',
+
+      error?.message ||
+        'Impossible de vérifier le pays depuis votre position.'
+    );
+  }
+
+
+  if (
+    !response?.ok
+  ) {
+    throw buildLocationError(
+      'GEOCODING_HTTP_STATUS',
+
+      `Le service de vérification du pays a répondu avec le statut ${response?.status || 'inconnu'}.`
+    );
+  }
+
+
+  let data;
+
+
+  try {
+    data =
+      await response.json();
+
+  } catch (_) {
+    throw buildLocationError(
+      'GEOCODING_HTTP_INVALID_RESPONSE',
+
+      'Réponse invalide du service de vérification du pays.'
+    );
+  }
+
+
+  return data ||
+    null;
+}
+
+
+function isExpoReverseGeocodeNullPointer(
+  error
+) {
+  const text =
+    String(
+      error?.message ||
+      error ||
+      ''
+    ).toLowerCase();
+
+
+  return (
+    text.includes(
+      'getcountrycode'
+    ) ||
+    text.includes(
+      'nullpointerexception'
+    ) ||
+    text.includes(
+      'must not be null'
+    ) ||
+    text.includes(
+      'reversegeocodeasync'
+    )
+  );
+}
+
 
 export async function detectCurrentCountry() {
-  /*
-   * ----------------------------------------------------------
-   * Vérifier que le GPS est activé
-   * ----------------------------------------------------------
-   */
-
   let servicesEnabled =
     true;
+
 
   try {
     servicesEnabled =
       await Location.hasServicesEnabledAsync();
-  } catch (_) {
-    /*
-     * Dans certains environnements Expo,
-     * cet appel peut être indisponible.
-     * On laisse alors l'appel GPS gérer le cas.
-     */
 
+  } catch (_) {
     servicesEnabled =
       true;
   }
@@ -347,17 +467,13 @@ export async function detectCurrentCountry() {
   }
 
 
-  /*
-   * ----------------------------------------------------------
-   * Permission
-   * ----------------------------------------------------------
-   */
-
   let permission;
+
 
   try {
     permission =
       await Location.requestForegroundPermissionsAsync();
+
   } catch (
     error
   ) {
@@ -382,18 +498,13 @@ export async function detectCurrentCountry() {
   }
 
 
-  /*
-   * ----------------------------------------------------------
-   * Position
-   * ----------------------------------------------------------
-   */
-
   const location =
     await getUsableLocation();
 
 
   const latitude =
     location?.coords?.latitude;
+
 
   const longitude =
     location?.coords?.longitude;
@@ -415,18 +526,19 @@ export async function detectCurrentCountry() {
   }
 
 
+  let address =
+    null;
+
+  let nativeError =
+    null;
+
+
   /*
-   * ----------------------------------------------------------
-   * REVERSE GEOCODING
-   * ----------------------------------------------------------
+   * Tentative avec Expo Location.
    */
 
-  let addresses =
-    [];
-
-
   try {
-    addresses =
+    const addresses =
       await withTimeout(
         Location.reverseGeocodeAsync({
           latitude,
@@ -439,44 +551,127 @@ export async function detectCurrentCountry() {
 
         'La vérification du pays prend trop de temps. Réessayez.'
       );
+
+
+    address =
+      addresses?.[0] ||
+      null;
+
   } catch (
     error
   ) {
-    if (
-      error?.code
-    ) {
-      throw error;
-    }
-
-    throw buildLocationError(
-      'GEOCODING_FAILED',
-
-      error?.message ||
-        'Impossible de lire le pays depuis votre position.'
-    );
+    nativeError =
+      error;
   }
 
 
-  const address =
-    addresses?.[0] ||
-    null;
-
-
-  const detected =
+  let detected =
     getCountryFromAddress(
       address
     );
 
 
   /*
-   * ----------------------------------------------------------
-   * PAYS NON SUPPORTÉ
-   * ----------------------------------------------------------
+   * Fallback HTTP.
    *
-   * On ne lance pas d'erreur ici.
-   * On retourne simplement supported=false.
+   * Utilisé :
    *
-   * Cela permet à l'écran d'afficher un message clair.
+   * - si Android fait un NullPointerException ;
+   * - si countryCode manque ;
+   * - si le provider natif renvoie un pays inexploitable.
+   */
+
+  if (
+    !detected.country ||
+    nativeError
+  ) {
+    try {
+      const httpAddress =
+        await reverseGeocodeWithHttp(
+          latitude,
+          longitude
+        );
+
+
+      const httpDetected =
+        getCountryFromAddress(
+          httpAddress?.address ||
+          httpAddress
+        );
+
+
+      if (
+        httpDetected.country
+      ) {
+        detected =
+          httpDetected;
+
+
+        address = {
+          ...(address ||
+            {}),
+
+          city:
+            httpAddress?.address?.city ||
+            httpAddress?.address?.town ||
+            httpAddress?.address?.village ||
+            httpAddress?.address?.municipality ||
+            address?.city ||
+            null,
+
+          district:
+            httpAddress?.address?.suburb ||
+            httpAddress?.address?.district ||
+            address?.district ||
+            null,
+
+          subregion:
+            httpAddress?.address?.county ||
+            address?.subregion ||
+            null,
+
+          region:
+            httpAddress?.address?.state ||
+            address?.region ||
+            null,
+
+          country:
+            httpAddress?.address?.country ||
+            address?.country ||
+            null,
+
+          countryCode:
+            httpAddress?.address?.country_code ||
+            address?.countryCode ||
+            null,
+        };
+      }
+
+    } catch (
+      fallbackError
+    ) {
+      /*
+       * Si Expo a quand même réussi à fournir
+       * un pays valide, on le conserve.
+       */
+
+      if (
+        !detected.country &&
+        nativeError &&
+        !isExpoReverseGeocodeNullPointer(
+          nativeError
+        ) &&
+        fallbackError?.code ===
+          'GEOCODING_HTTP_TIMEOUT'
+      ) {
+        throw nativeError;
+      }
+    }
+  }
+
+
+  /*
+   * Pays non supporté.
    */
 
   if (
@@ -490,6 +685,7 @@ export async function detectCurrentCountry() {
         detected.countryCode,
 
       latitude,
+
       longitude,
 
       city:
@@ -515,12 +711,6 @@ export async function detectCurrentCountry() {
   }
 
 
-  /*
-   * ----------------------------------------------------------
-   * SUCCÈS
-   * ----------------------------------------------------------
-   */
-
   return {
     country:
       detected.country,
@@ -529,6 +719,7 @@ export async function detectCurrentCountry() {
       detected.countryCode,
 
     latitude,
+
     longitude,
 
     city:
@@ -553,27 +744,6 @@ export async function detectCurrentCountry() {
   };
 }
 
-
-/*
- * ============================================================
- * VÉRIFICATION DU CHOIX UTILISATEUR
- * ============================================================
- *
- * L'utilisateur choisit d'abord son pays.
- *
- * Ensuite :
- *
- *     pays choisi
- *          ↓
- *        GPS
- *          ↓
- *   pays détecté
- *          ↓
- *   correspondance ?
- *
- * Oui  → on enregistre le pays
- * Non  → on bloque et on demande de corriger
- */
 
 export async function verifySelectedCountry({
   userId,
@@ -624,28 +794,15 @@ export async function verifySelectedCountry({
   }
 
 
-  /*
-   * Détection réelle.
-   */
-
   const detected =
     await detectCurrentCountry();
 
-
-  /*
-   * Comparaison.
-   */
 
   const matches =
     detected.supported &&
     detected.country ===
       canonicalSelectedCountry;
 
-
-  /*
-   * Pays différent :
-   * surtout NE PAS mettre à jour le profil.
-   */
 
   if (
     !matches
@@ -670,14 +827,6 @@ export async function verifySelectedCountry({
     };
   }
 
-
-  /*
-   * ----------------------------------------------------------
-   * PAYS CONFIRMÉ
-   * ----------------------------------------------------------
-   *
-   * Maintenant seulement, on met à jour profiles.country.
-   */
 
   const {
     data,
@@ -726,18 +875,11 @@ export async function verifySelectedCountry({
       detected,
 
     profile:
-      data || null,
+      data ||
+      null,
   };
 }
 
-
-/*
- * ============================================================
- * ANCIENNE FONCTION
- * ============================================================
- *
- * Conservée pour les autres parties du projet.
- */
 
 export async function detectAndPersistCurrentCountry({
   userId,
@@ -800,6 +942,7 @@ export async function detectAndPersistCurrentCountry({
     ...detected,
 
     profile:
-      data || null,
+      data ||
+      null,
   };
 }

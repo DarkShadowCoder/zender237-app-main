@@ -1,184 +1,436 @@
-import React, { useState } from 'react';
+import React, {
+  useState,
+} from 'react';
+
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
-import { colors, spacing, typography } from '../../theme/theme';
+import {
+  colors,
+  spacing,
+  typography,
+} from '../../theme/theme';
+
 import Header from '../../components/Header';
+
 import Input from '../../components/Input';
+
 import Button from '../../components/Button';
-import { useAuth } from '../../context/AuthContext';
-import { isValidAmount } from '../../utils/validators';
 
-export default function DepositAmountScreen({ navigation }) {
-  const { profile } = useAuth();
+import {
+  useAuth,
+} from '../../context/AuthContext';
 
-  const [amount, setAmount] = useState('');
-  const [error, setError] = useState(null);
+import {
+  isValidAmount,
+} from '../../utils/validators';
 
-  const continueToPayment = () => {
-    if (!profile?.whatsapp_number) {
-      setError('Votre numéro WhatsApp est introuvable.');
-      return;
-    }
 
-    if (!isValidAmount(amount)) {
-      setError('Entrez un montant valide.');
-      return;
-    }
+const MIN_DEPOSIT_AMOUNT =
+  10000;
 
-    const numericAmount = Number(
-      String(amount).replace(/\D/g, '')
-    );
 
-    navigation.navigate('DepositProof', {
-      amount: numericAmount,
-    });
-  };
+export default function DepositAmountScreen({
+  navigation,
+}) {
+  const {
+    profile,
+  } =
+    useAuth();
+
+
+  const [
+    amount,
+    setAmount,
+  ] =
+    useState('');
+
+
+  const [
+    error,
+    setError,
+  ] =
+    useState(null);
+
+
+  const continueToPayment =
+    () => {
+      if (
+        !profile?.whatsapp_number
+      ) {
+        setError(
+          'Votre numéro WhatsApp est introuvable.'
+        );
+
+        return;
+      }
+
+
+      if (
+        !isValidAmount(
+          amount
+        )
+      ) {
+        setError(
+          'Entrez un montant valide.'
+        );
+
+        return;
+      }
+
+
+      const numericAmount =
+        Number(
+          String(
+            amount
+          ).replace(
+            /\D/g,
+            ''
+          )
+        );
+
+
+      if (
+        numericAmount <
+        MIN_DEPOSIT_AMOUNT
+      ) {
+        Alert.alert(
+          'Le montant de recharge doit être supérieur ou égal à 10 000 U.'
+        );
+
+        return;
+      }
+
+
+      navigation.navigate(
+        'DepositProof',
+        {
+          amount:
+            numericAmount,
+        }
+      );
+    };
+
 
   return (
     <ScrollView
-      style={styles.wrapper}
-      contentContainerStyle={styles.content}
+      style={
+        styles.wrapper
+      }
+
+      contentContainerStyle={
+        styles.content
+      }
+
       keyboardShouldPersistTaps="handled"
     >
-      <Header title="Déposer" />
+      <Header
+        title="Déposer"
+      />
 
-      <View style={styles.stepRow}>
-        <View style={styles.stepActive}>
-          <Text style={styles.stepNumber}>1</Text>
+
+      <View
+        style={
+          styles.stepRow
+        }
+      >
+        <View
+          style={
+            styles.stepActive
+          }
+        >
+          <Text
+            style={
+              styles.stepNumber
+            }
+          >
+            1
+          </Text>
         </View>
 
-        <Text style={typography.caption}>
+
+        <Text
+          style={
+            typography.caption
+          }
+        >
           Montant
         </Text>
       </View>
 
-      <Text style={[typography.h2, styles.title]}>
+
+      <Text
+        style={[
+          typography.h2,
+          styles.title,
+        ]}
+      >
         Combien ?
       </Text>
 
-      <Text style={[typography.caption, styles.caption]}>
+
+      <Text
+        style={[
+          typography.caption,
+          styles.caption,
+        ]}
+      >
         Entrez le montant à ajouter.
       </Text>
 
+
       <Input
         label="Montant"
-        value={amount}
-        onChangeText={(value) => {
-          setAmount(value);
-          setError(null);
-        }}
+
+        value={
+          amount
+        }
+
+        onChangeText={
+          (value) => {
+            setAmount(
+              value
+            );
+
+            setError(
+              null
+            );
+          }
+        }
+
         format="price"
+
         keyboardType="number-pad"
+
         placeholder="50 000"
+
         rightAdornment={
-          <Text style={typography.caption}>
+          <Text
+            style={
+              typography.caption
+            }
+          >
             U
           </Text>
         }
-        error={error}
+
+        error={
+          error
+        }
+
         autoFocus
       />
 
-      <View style={styles.infoCard}>
-        <Text style={styles.infoIcon}>
+
+      <View
+        style={
+          styles.infoCard
+        }
+      >
+        <Text
+          style={
+            styles.infoIcon
+          }
+        >
           ✓
         </Text>
 
-        <View style={styles.infoText}>
-          <Text style={typography.bodyBold}>
+
+        <View
+          style={
+            styles.infoText
+          }
+        >
+          <Text
+            style={
+              typography.bodyBold
+            }
+          >
             Votre numéro
           </Text>
 
-          <Text style={typography.caption}>
-            {profile?.whatsapp_number}
+
+          <Text
+            style={
+              typography.caption
+            }
+          >
+            {
+              profile?.whatsapp_number
+            }
           </Text>
         </View>
       </View>
 
+
       <Button
         title="Continuer"
-        onPress={continueToPayment}
-        style={styles.button}
+        onPress={
+          continueToPayment
+        }
+        style={
+          styles.button
+        }
       />
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: colors.background.default,
-  },
 
-  content: {
-    padding: spacing.screenHorizontal,
-    paddingBottom: spacing.xxxl,
-  },
+const styles =
+  StyleSheet.create({
+    wrapper: {
+      flex: 1,
 
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.lg,
-  },
+      backgroundColor:
+        colors.background
+          .default,
+    },
 
-  stepActive: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.brand.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
-  stepNumber: {
-    color: colors.text.inverse,
-    fontWeight: '800',
-  },
+    content: {
+      padding:
+        spacing.screenHorizontal,
 
-  title: {
-    marginTop: spacing.xl,
-  },
+      paddingBottom:
+        spacing.xxxl,
+    },
 
-  caption: {
-    marginTop: spacing.xs,
-    marginBottom: spacing.xl,
-  },
 
-  infoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-    padding: spacing.md,
-    borderRadius: 16,
-    backgroundColor: colors.background.surface,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-  },
+    stepRow: {
+      flexDirection:
+        'row',
 
-  infoIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    color: colors.brand.primary,
-    backgroundColor: colors.brand.primaryLight,
-    fontSize: 18,
-    fontWeight: '800',
-  },
+      alignItems:
+        'center',
 
-  infoText: {
-    flex: 1,
-  },
+      gap:
+        spacing.xs,
 
-  button: {
-    marginTop: spacing.xl,
-  },
-});
+      marginTop:
+        spacing.lg,
+    },
+
+
+    stepActive: {
+      width: 28,
+
+      height: 28,
+
+      borderRadius:
+        14,
+
+      backgroundColor:
+        colors.brand
+          .primary,
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+    },
+
+
+    stepNumber: {
+      color:
+        colors.text
+          .inverse,
+
+      fontWeight:
+        '800',
+    },
+
+
+    title: {
+      marginTop:
+        spacing.xl,
+    },
+
+
+    caption: {
+      marginTop:
+        spacing.xs,
+
+      marginBottom:
+        spacing.xl,
+    },
+
+
+    infoCard: {
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      gap:
+        spacing.sm,
+
+      marginTop:
+        spacing.sm,
+
+      padding:
+        spacing.md,
+
+      borderRadius:
+        16,
+
+      backgroundColor:
+        colors.background
+          .surface,
+
+      borderWidth:
+        1,
+
+      borderColor:
+        colors.border
+          .light,
+    },
+
+
+    infoIcon: {
+      width: 34,
+
+      height: 34,
+
+      borderRadius:
+        17,
+
+      textAlign:
+        'center',
+
+      textAlignVertical:
+        'center',
+
+      color:
+        colors.brand
+          .primary,
+
+      backgroundColor:
+        colors.brand
+          .primaryLight,
+
+      fontSize:
+        18,
+
+      fontWeight:
+        '800',
+    },
+
+
+    infoText: {
+      flex: 1,
+    },
+
+
+    button: {
+      marginTop:
+        spacing.xl,
+    },
+  });
