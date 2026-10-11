@@ -10,19 +10,29 @@ import {
   View,
 } from 'react-native';
 
-import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
+import {
+  Ionicons,
+} from '@expo/vector-icons';
+
+import Toast from
+  'react-native-toast-message';
 
 import {
   colors,
   radii,
   spacing,
   typography,
+  countries,
 } from '../../theme/theme';
 
-import Header from '../../components/Header';
-import Button from '../../components/Button';
-import AmountDisplay from '../../components/AmountDisplay';
+import Header from
+  '../../components/Header';
+
+import Button from
+  '../../components/Button';
+
+import AmountDisplay from
+  '../../components/AmountDisplay';
 
 import {
   createWithdrawal,
@@ -37,9 +47,11 @@ import {
 } from '../../components/Input';
 
 import {
-  getCountryCodeFromPhone,
-  normalizeInternationalPhone,
+  buildInternationalPhone,
+  digitsOnlyPhone,
+  getCountryKeyFromPhone,
 } from '../../utils/phone';
+
 
 const METHOD_LABELS = {
   mobile_money:
@@ -52,69 +64,291 @@ const METHOD_LABELS = {
     'Point partenaire',
 };
 
+
+/*
+ * ============================================================
+ * FORMATAGE DES MONTANTS
+ * ============================================================
+ *
+ * Exemple :
+ * 5000    -> 5 000
+ * 50000   -> 50 000
+ * 125000  -> 125 000
+ */
+
+function formatAmount(
+  amount
+) {
+  const numericAmount =
+    Number(amount);
+
+  if (
+    !Number.isFinite(
+      numericAmount
+    )
+  ) {
+    return '0';
+  }
+
+  return new Intl.NumberFormat(
+    'fr-FR',
+    {
+      maximumFractionDigits: 0,
+    }
+  ).format(
+    numericAmount
+  );
+}
+
+
+/*
+ * ============================================================
+ * FRAIS
+ * ============================================================
+ *
+ * 0 à 50 000 inclus : 5 %
+ * Au-dessus de 50 000 : 3 %
+ */
+
+function getWithdrawalFeeRate(
+  amount
+) {
+  return Number(amount) > 50000
+    ? 0.03
+    : 0.05;
+}
+
+
+function calculateWithdrawalFee(
+  amount
+) {
+  const numericAmount =
+    Number(amount);
+
+  if (
+    !Number.isFinite(
+      numericAmount
+    ) ||
+    numericAmount <= 0
+  ) {
+    return 0;
+  }
+
+  return Math.round(
+    numericAmount *
+      getWithdrawalFeeRate(
+        numericAmount
+      )
+  );
+}
+
+
+/*
+ * ============================================================
+ * ÉCRAN
+ * ============================================================
+ */
+
 export default function WithdrawalSummaryScreen({
   route,
   navigation,
 }) {
   const {
     amount,
-    feeAmount,
     method,
     recipientName,
     recipientMobileNumber,
-    recipientCountryCode,
   } = route.params;
+
 
   const {
     user,
+    profile,
   } = useAuth();
+
+
+  /*
+   * ----------------------------------------------------------
+   * ÉTATS
+   * ----------------------------------------------------------
+   */
 
   const [
     submitting,
     setSubmitting,
   ] = useState(false);
 
+
   const [
     done,
     setDone,
   ] = useState(false);
 
+
+  /*
+   * Modal demandant une confirmation explicite
+   * avant de créer le retrait.
+   */
+  const [
+    confirmationVisible,
+    setConfirmationVisible,
+  ] = useState(false);
+
+
   const numericAmount =
     Number(amount);
 
-  const numericFee =
-    Number(
-      feeAmount || 0
+
+  /*
+   * ----------------------------------------------------------
+   * INDICATIF FIXE DU COMPTE
+   * ----------------------------------------------------------
+   *
+   * Le country code du destinataire est toujours basé
+   * sur le numéro WhatsApp du compte connecté.
+   */
+
+  const loginCountryKey =
+    getCountryKeyFromPhone(
+      profile?.whatsapp_number
     );
+
+
+  const fixedRecipientCountry =
+    loginCountryKey &&
+    countries[
+      loginCountryKey
+    ]
+      ? loginCountryKey
+      : profile?.country &&
+          countries[
+            profile.country
+          ]
+        ? profile.country
+        : 'cameroun';
+
+
+  const fixedRecipientDialCode =
+    countries[
+      fixedRecipientCountry
+    ]?.dialCode ||
+    '+237';
+
+
+  /*
+   * ----------------------------------------------------------
+   * FRAIS
+   * ----------------------------------------------------------
+   */
+
+  const numericFeeRate =
+    getWithdrawalFeeRate(
+      numericAmount
+    );
+
+
+  const numericFee =
+    calculateWithdrawalFee(
+      numericAmount
+    );
+
 
   const received =
     numericAmount -
     numericFee;
 
+
+  /*
+   * ----------------------------------------------------------
+   * DESTINATAIRE
+   * ----------------------------------------------------------
+   */
+
   const isPhone =
     method !==
     'bank_transfer';
 
+
+  /*
+   * Le numéro provenant de l'écran précédent peut être
+   * complet (+237..., +224..., etc.).
+   *
+   * On conserve uniquement les chiffres locaux puis on
+   * reconstruit le numéro avec le country code du compte connecté.
+   */
+
+  const localPhoneDigits =
+    isPhone
+      ? digitsOnlyPhone(
+          recipientMobileNumber
+        ).slice(-9)
+      : '';
+
+
   const normalizedPhone =
     isPhone
-      ? normalizeInternationalPhone(
-          recipientMobileNumber
+      ? buildInternationalPhone(
+          localPhoneDigits,
+          fixedRecipientCountry
         )
       : recipientMobileNumber;
 
+
   const countryCode =
     isPhone
-      ? recipientCountryCode ||
-        getCountryCodeFromPhone(
-          normalizedPhone
-        )
+      ? fixedRecipientDialCode
       : null;
+
+
+  /*
+   * ==========================================================
+   * MODAL DE CONFIRMATION
+   * ==========================================================
+   */
+
+  const openConfirmation =
+    () => {
+      if (submitting) {
+        return;
+      }
+
+      setConfirmationVisible(
+        true
+      );
+    };
+
+
+  const closeConfirmation =
+    () => {
+      if (submitting) {
+        return;
+      }
+
+      setConfirmationVisible(
+        false
+      );
+    };
+
+
+  /*
+   * ==========================================================
+   * CRÉATION DU RETRAIT
+   * ==========================================================
+   *
+   * Cette fonction n'est appelée qu'après confirmation
+   * explicite dans le modal.
+   */
 
   const confirm =
     async () => {
+      setConfirmationVisible(
+        false
+      );
+
       setSubmitting(
         true
       );
+
 
       try {
         await createWithdrawal({
@@ -124,6 +358,12 @@ export default function WithdrawalSummaryScreen({
           amount:
             numericAmount,
 
+          /*
+           * Règle officielle :
+           *
+           * <= 50 000 -> 5 %
+           * >  50 000 -> 3 %
+           */
           feeAmount:
             numericFee,
 
@@ -141,9 +381,11 @@ export default function WithdrawalSummaryScreen({
             ],
         });
 
+
         setDone(
           true
         );
+
       } catch (error) {
         Toast.show({
           type:
@@ -156,6 +398,7 @@ export default function WithdrawalSummaryScreen({
             error?.message ||
             'Réessayez.',
         });
+
       } finally {
         setSubmitting(
           false
@@ -163,12 +406,22 @@ export default function WithdrawalSummaryScreen({
       }
     };
 
+
+  /*
+   * ==========================================================
+   * RETOUR APRÈS SUCCÈS
+   * ==========================================================
+   */
+
   const closeDone =
     () => {
-      setDone(false);
+      setDone(
+        false
+      );
 
       navigation.reset({
         index: 0,
+
         routes: [
           {
             name:
@@ -177,6 +430,13 @@ export default function WithdrawalSummaryScreen({
         ],
       });
     };
+
+
+  /*
+   * ==========================================================
+   * AFFICHAGE
+   * ==========================================================
+   */
 
   return (
     <>
@@ -191,6 +451,11 @@ export default function WithdrawalSummaryScreen({
         <Header
           title="Vérifier"
         />
+
+
+        {/* -------------------------------------------------- */}
+        {/* ÉTAPES */}
+        {/* -------------------------------------------------- */}
 
         <View
           style={
@@ -211,11 +476,13 @@ export default function WithdrawalSummaryScreen({
             </Text>
           </View>
 
+
           <View
             style={
               styles.line
             }
           />
+
 
           <View
             style={
@@ -231,6 +498,7 @@ export default function WithdrawalSummaryScreen({
             </Text>
           </View>
 
+
           <Text
             style={
               typography.caption
@@ -239,6 +507,11 @@ export default function WithdrawalSummaryScreen({
             Confirmé
           </Text>
         </View>
+
+
+        {/* -------------------------------------------------- */}
+        {/* TITRE */}
+        {/* -------------------------------------------------- */}
 
         <Text
           style={[
@@ -249,6 +522,7 @@ export default function WithdrawalSummaryScreen({
           Tout est bon ?
         </Text>
 
+
         <Text
           style={[
             typography.caption,
@@ -257,6 +531,11 @@ export default function WithdrawalSummaryScreen({
         >
           Vérifiez juste avant de retirer.
         </Text>
+
+
+        {/* -------------------------------------------------- */}
+        {/* DESTINATAIRE */}
+        {/* -------------------------------------------------- */}
 
         <View
           style={
@@ -269,6 +548,7 @@ export default function WithdrawalSummaryScreen({
               recipientName
             }
           />
+
 
           <Row
             label={
@@ -285,6 +565,7 @@ export default function WithdrawalSummaryScreen({
             }
           />
 
+
           <Row
             label="Mode"
             value={
@@ -292,8 +573,14 @@ export default function WithdrawalSummaryScreen({
                 method
               ]
             }
+            last
           />
         </View>
+
+
+        {/* -------------------------------------------------- */}
+        {/* MONTANTS */}
+        {/* -------------------------------------------------- */}
 
         <View
           style={
@@ -307,18 +594,21 @@ export default function WithdrawalSummaryScreen({
             }
           />
 
+
           <AmountDisplay
-            label="Frais"
+            label={`Frais (${numericFeeRate * 100} %)`}
             value={
               numericFee
             }
           />
+
 
           <View
             style={
               styles.divider
             }
           />
+
 
           <AmountDisplay
             label="Vous recevez"
@@ -329,10 +619,15 @@ export default function WithdrawalSummaryScreen({
           />
         </View>
 
+
+        {/* -------------------------------------------------- */}
+        {/* BOUTON */}
+        {/* -------------------------------------------------- */}
+
         <Button
           title="Retirer"
           onPress={
-            confirm
+            openConfirmation
           }
           loading={
             submitting
@@ -343,8 +638,162 @@ export default function WithdrawalSummaryScreen({
         />
       </ScrollView>
 
+
+      {/* ======================================================
+       * MODAL DE CONFIRMATION
+       * ====================================================== */}
+
       <Modal
-        visible={done}
+        visible={
+          confirmationVisible
+        }
+        transparent
+        animationType="fade"
+        onRequestClose={
+          closeConfirmation
+        }
+      >
+        <View
+          style={
+            styles.confirmOverlay
+          }
+        >
+          <View
+            style={
+              styles.confirmCard
+            }
+          >
+            <View
+              style={
+                styles.confirmIcon
+              }
+            >
+              <Ionicons
+                name="help-circle-outline"
+                size={34}
+                color={
+                  colors.brand.primary
+                }
+              />
+            </View>
+
+
+            <Text
+              style={
+                typography.h2
+              }
+            >
+              Confirmer le retrait ?
+            </Text>
+
+
+            <Text
+              style={[
+                typography.caption,
+                styles.confirmText,
+              ]}
+            >
+              Êtes-vous sûr de vouloir confirmer cette demande de retrait ?
+            </Text>
+
+
+            <View
+              style={
+                styles.confirmSummary
+              }
+            >
+              <Row
+                label="Destinataire"
+                value={
+                  recipientName
+                }
+              />
+
+
+              <Row
+                label="Numéro"
+                value={
+                  isPhone
+                    ? formatPhone(
+                        normalizedPhone
+                      )
+                    : normalizedPhone
+                }
+              />
+
+
+              <Row
+                label="Montant"
+                value={`${formatAmount(
+                  numericAmount
+                )} FCFA`}
+              />
+
+
+              <Row
+                label="Frais"
+                value={`${formatAmount(
+                  numericFee
+                )} FCFA`}
+              />
+
+
+              <Row
+                label="Vous recevez"
+                value={`${formatAmount(
+                  received
+                )} FCFA`}
+                last
+              />
+            </View>
+
+
+            <View
+              style={
+                styles.confirmActions
+              }
+            >
+              <Button
+                title="Annuler"
+                variant="outline"
+                onPress={
+                  closeConfirmation
+                }
+                disabled={
+                  submitting
+                }
+                style={
+                  styles.confirmButton
+                }
+              />
+
+
+              <Button
+                title="confirmer"
+                onPress={
+                  confirm
+                }
+                loading={
+                  submitting
+                }
+                style={
+                  styles.confirmButton
+                }
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+
+      {/* ======================================================
+       * MODAL SUCCÈS
+       * ====================================================== */}
+
+      <Modal
+        visible={
+          done
+        }
         transparent
         animationType="fade"
       >
@@ -372,6 +821,7 @@ export default function WithdrawalSummaryScreen({
               />
             </View>
 
+
             <Text
               style={
                 typography.h2
@@ -379,6 +829,7 @@ export default function WithdrawalSummaryScreen({
             >
               C’est envoyé
             </Text>
+
 
             <Text
               style={[
@@ -388,6 +839,7 @@ export default function WithdrawalSummaryScreen({
             >
               Votre demande de retrait est en cours.
             </Text>
+
 
             <Button
               title="Retour à l’accueil"
@@ -402,15 +854,25 @@ export default function WithdrawalSummaryScreen({
   );
 }
 
+
+/*
+ * ============================================================
+ * ROW
+ * ============================================================
+ */
+
 function Row({
   label,
   value,
+  last = false,
 }) {
   return (
     <View
-      style={
-        styles.row
-      }
+      style={[
+        styles.row,
+        !last &&
+          styles.rowSpacing,
+      ]}
     >
       <Text
         style={
@@ -420,218 +882,426 @@ function Row({
         {label}
       </Text>
 
+
       <Text
         style={[
           typography.caption,
           styles.value,
         ]}
-        numberOfLines={2}
+        numberOfLines={
+          2
+        }
       >
-        {value ||
-          '—'}
+        {value || '—'}
       </Text>
     </View>
   );
 }
 
+
+/*
+ * ============================================================
+ * STYLES
+ * ============================================================
+ */
+
 const styles =
   StyleSheet.create({
     wrapper: {
       flex: 1,
+
       backgroundColor:
         colors.background
           .default,
     },
 
+
     content: {
       padding:
         spacing.screenHorizontal,
+
       paddingBottom:
         spacing.xxxl,
     },
 
+
     stepRow: {
       flexDirection:
         'row',
+
       alignItems:
         'center',
+
       gap:
         spacing.xs,
+
       marginTop:
         spacing.lg,
     },
 
+
     stepDone: {
       width: 28,
+
       height: 28,
+
       borderRadius: 14,
+
       backgroundColor:
         colors.brand
           .primaryLight,
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
     },
 
+
     stepActive: {
       width: 28,
+
       height: 28,
+
       borderRadius: 14,
+
       backgroundColor:
         colors.brand
           .primary,
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
     },
+
 
     stepNumber: {
       color:
         colors.brand
           .primary,
+
       fontWeight:
         '800',
     },
+
 
     stepNumberInverse: {
       color:
         colors.text.inverse,
+
       fontWeight:
         '800',
     },
 
+
     line: {
       width: 24,
+
       height: 1,
+
       backgroundColor:
-        colors.border.default,
+        colors.border
+          .default,
     },
+
 
     title: {
       marginTop:
         spacing.xl,
     },
 
+
     caption: {
       marginTop:
         spacing.xs,
+
       marginBottom:
         spacing.lg,
     },
+
 
     card: {
       padding:
         spacing.lg,
+
       borderRadius:
         radii.xl,
+
       backgroundColor:
         colors.background
           .surface,
+
       borderWidth:
         1,
+
       borderColor:
         colors.border
           .light,
     },
+
 
     row: {
       flexDirection:
         'row',
+
       justifyContent:
         'space-between',
+
       gap:
         spacing.md,
+    },
+
+
+    rowSpacing: {
       marginBottom:
         spacing.sm,
     },
 
+
     value: {
       flex: 1,
+
       textAlign:
         'right',
+
       color:
         colors.text.primary,
     },
 
+
     amountCard: {
       marginTop:
         spacing.md,
+
       padding:
         spacing.lg,
+
       borderRadius:
         radii.xl,
+
       backgroundColor:
         colors.background
           .surface,
+
       borderWidth:
         1,
+
       borderColor:
         colors.border
           .light,
     },
 
+
     divider: {
       height: 1,
+
       backgroundColor:
         colors.border
           .light,
+
       marginVertical:
         spacing.sm,
     },
+
 
     button: {
       marginTop:
         spacing.xl,
     },
 
-    modalOverlay: {
+
+    /* ========================================================
+     * MODAL CONFIRMATION
+     * ======================================================== */
+
+    confirmOverlay: {
       flex: 1,
+
       backgroundColor:
         'rgba(0,0,0,0.45)',
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
+
       padding:
         spacing.xl,
     },
 
-    modalCard: {
-      width: '100%',
-      maxWidth: 420,
+
+    confirmCard: {
+      width:
+        '100%',
+
+      maxWidth:
+        420,
+
       padding:
         spacing.xl,
+
       borderRadius:
         radii.xl,
+
       backgroundColor:
         colors.background
           .surface,
+    },
+
+
+    confirmIcon: {
+      width: 68,
+
+      height: 68,
+
+      borderRadius: 34,
+
+      backgroundColor:
+        colors.brand
+          .primaryLight,
+
       alignItems:
         'center',
+
+      justifyContent:
+        'center',
+
+      alignSelf:
+        'center',
+
+      marginBottom:
+        spacing.sm,
+    },
+
+
+    confirmText: {
+      textAlign:
+        'center',
+
+      marginTop:
+        spacing.xs,
+
+      marginBottom:
+        spacing.md,
+
+      lineHeight:
+        22,
+    },
+
+
+    confirmSummary: {
+      padding:
+        spacing.md,
+
+      borderRadius:
+        radii.md,
+
+      backgroundColor:
+        colors.background
+          .default,
+
+      borderWidth:
+        1,
+
+      borderColor:
+        colors.border
+          .light,
+    },
+
+
+    confirmActions: {
+      flexDirection:
+        'row',
+
+      gap:
+        spacing.sm,
+
+      marginTop:
+        spacing.lg,
+    },
+
+
+    confirmButton: {
+      flex: 1,
+    },
+
+
+    /* ========================================================
+     * MODAL SUCCÈS
+     * ======================================================== */
+
+    modalOverlay: {
+      flex: 1,
+
+      backgroundColor:
+        'rgba(0,0,0,0.45)',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      padding:
+        spacing.xl,
+    },
+
+
+    modalCard: {
+      width:
+        '100%',
+
+      maxWidth:
+        420,
+
+      padding:
+        spacing.xl,
+
+      borderRadius:
+        radii.xl,
+
+      backgroundColor:
+        colors.background
+          .surface,
+
+      alignItems:
+        'center',
+
       gap:
         spacing.sm,
     },
 
+
     modalIcon: {
       width: 72,
+
       height: 72,
+
       borderRadius: 36,
+
       backgroundColor:
         colors.brand
           .primaryLight,
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
+
       marginBottom:
         spacing.xs,
     },
 
+
     modalText: {
       textAlign:
         'center',
+
       marginBottom:
         spacing.md,
     },

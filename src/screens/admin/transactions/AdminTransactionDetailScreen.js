@@ -84,9 +84,6 @@ const TERMINAL_STATUSES = [
 /**
  * Toutes les actions administrateur passent par l'Edge Function
  * `admin-transaction-action`.
- *
- * Cela évite de dupliquer la logique métier côté mobile et garantit
- * que les vérifications admin restent exécutées côté serveur.
  */
 async function executeAdminTransactionAction({
   transactionId,
@@ -114,7 +111,9 @@ async function executeAdminTransactionAction({
       {
         body: {
           transactionId,
+
           action,
+
           reason:
             reason
               ? String(
@@ -125,10 +124,6 @@ async function executeAdminTransactionAction({
       }
     );
 
-  /*
-   * Supabase peut retourner une FunctionsHttpError avec
-   * un corps JSON contenant le vrai message de l'Edge Function.
-   */
   if (error) {
     let message =
       error?.message ||
@@ -154,7 +149,7 @@ async function executeAdminTransactionAction({
         }
       }
     } catch (_) {
-      // On conserve le message Supabase si le body ne peut pas être lu.
+      // Message Supabase conservé.
     }
 
     const actionError =
@@ -206,6 +201,7 @@ async function approveTransaction({
 }) {
   return executeAdminTransactionAction({
     transactionId,
+
     action:
       'approve',
   });
@@ -218,8 +214,10 @@ async function rejectTransaction({
 }) {
   return executeAdminTransactionAction({
     transactionId,
+
     action:
       'reject',
+
     reason,
   });
 }
@@ -231,8 +229,10 @@ async function cancelTransaction({
 }) {
   return executeAdminTransactionAction({
     transactionId,
+
     action:
       'cancel',
+
     reason,
   });
 }
@@ -610,11 +610,6 @@ export default function AdminTransactionDetailScreen({
       options = {}
     ) => {
       try {
-        /*
-         * Sécurité supplémentaire :
-         * on évite exactement l'erreur
-         * "fn is not a function".
-         */
         if (
           typeof fn !==
           'function'
@@ -657,10 +652,6 @@ export default function AdminTransactionDetailScreen({
           e?.message ||
           'Une erreur est survenue.';
 
-        /*
-         * Messages plus explicites pour les cas métier
-         * déjà gérés par l’Edge Function.
-         */
         if (
           e?.code ===
           'INVALID_TRANSACTION_STATUS'
@@ -770,6 +761,7 @@ export default function AdminTransactionDetailScreen({
       setRejectReasonError(
         'Veuillez entrer le motif du rejet.'
       );
+
       return;
     }
 
@@ -777,6 +769,7 @@ export default function AdminTransactionDetailScreen({
       setRejectReasonError(
         'Le motif doit contenir au moins 3 caractères.'
       );
+
       return;
     }
 
@@ -819,9 +812,7 @@ export default function AdminTransactionDetailScreen({
    * ERROR
    * ========================================================== */
 
-  if (
-    error
-  ) {
+  if (error) {
     return (
       <Screen
         title="Transaction"
@@ -839,9 +830,7 @@ export default function AdminTransactionDetailScreen({
   }
 
 
-  if (
-    !d?.transaction
-  ) {
+  if (!d?.transaction) {
     return (
       <Screen
         title="Transaction"
@@ -887,8 +876,11 @@ export default function AdminTransactionDetailScreen({
     );
 
   const executionProofs =
-    d.executionProofs ||
-    [];
+    Array.isArray(
+      d.executionProofs
+    )
+      ? d.executionProofs
+      : [];
 
   const hasExecutionProof =
     executionProofs.length >
@@ -896,12 +888,12 @@ export default function AdminTransactionDetailScreen({
 
   const shortRef =
     t.id
-      ? `TXN-${t.id
+      ? `TXN-${String(t.id)
           .slice(
             0,
             3
           )
-          .toUpperCase()}-${t.id
+          .toUpperCase()}-${String(t.id)
           .slice(
             3,
             7
@@ -909,11 +901,19 @@ export default function AdminTransactionDetailScreen({
           .toUpperCase()}`
       : '—';
 
-  const network =
+  const rawNetwork =
     t.network ||
     t.payment_method ||
     t.momo_provider ||
     null;
+
+  const network =
+    typeof rawNetwork ===
+      'string' ||
+    typeof rawNetwork ===
+      'number'
+      ? String(rawNetwork)
+      : null;
 
   const steps =
     buildSteps(
@@ -970,16 +970,16 @@ export default function AdminTransactionDetailScreen({
             <View
               style={
                 local.bannerIconWrap
+            }
+          >
+            <Ionicons
+              name="checkmark"
+              size={15}
+              color={
+                banner.color
               }
-            >
-              <Ionicons
-                name="checkmark"
-                size={15}
-                color={
-                  banner.color
-                }
-              />
-            </View>
+            />
+          </View>
 
             <Text
               style={[
@@ -1162,8 +1162,10 @@ export default function AdminTransactionDetailScreen({
               numberOfLines={1}
             >
               {
-                t.profiles?.username ||
-                'Utilisateur'
+                typeof t.profiles?.username ===
+                  'string'
+                  ? t.profiles.username
+                  : 'Utilisateur'
               }
             </Text>
 
@@ -1174,10 +1176,11 @@ export default function AdminTransactionDetailScreen({
               numberOfLines={1}
             >
               {
-                t.profiles
-                  ?.whatsapp_number ||
-                network ||
-                '—'
+                typeof t.profiles?.whatsapp_number ===
+                  'string'
+                  ? t.profiles.whatsapp_number
+                  : network ||
+                    '—'
               }
             </Text>
           </View>
@@ -1218,8 +1221,10 @@ export default function AdminTransactionDetailScreen({
               numberOfLines={1}
             >
               {
-                t.recipient_name ||
-                'Non renseigné'
+                typeof t.recipient_name ===
+                  'string'
+                  ? t.recipient_name
+                  : 'Non renseigné'
               }
             </Text>
 
@@ -1230,9 +1235,11 @@ export default function AdminTransactionDetailScreen({
               numberOfLines={1}
             >
               {
-                t.recipient_mobile_number ||
-                network ||
-                '—'
+                typeof t.recipient_mobile_number ===
+                  'string'
+                  ? t.recipient_mobile_number
+                  : network ||
+                    '—'
               }
             </Text>
           </View>
@@ -1617,6 +1624,7 @@ export default function AdminTransactionDetailScreen({
         )}
       </ScrollView>
 
+
       {/* ====================================================
        * REJECT MODAL
        * ==================================================== */}
@@ -1640,17 +1648,35 @@ export default function AdminTransactionDetailScreen({
             onPress={closeRejectModal}
           />
 
-          <View style={local.rejectModal}>
-            <View style={local.rejectModalHeader}>
-              <View style={local.rejectModalIcon}>
+          <View
+            style={
+              local.rejectModal
+            }
+          >
+            <View
+              style={
+                local.rejectModalHeader
+              }
+            >
+              <View
+                style={
+                  local.rejectModalIcon
+                }
+              >
                 <Ionicons
                   name="close-circle-outline"
                   size={22}
-                  color={colors.error.default}
+                  color={
+                    colors.error.default
+                  }
                 />
               </View>
 
-              <View style={{ flex: 1 }}>
+              <View
+                style={{
+                  flex: 1,
+                }}
+              >
                 <Text
                   style={[
                     typography.bodyBold,
@@ -1671,6 +1697,7 @@ export default function AdminTransactionDetailScreen({
               </View>
             </View>
 
+
             <Text
               style={[
                 typography.caption,
@@ -1680,29 +1707,60 @@ export default function AdminTransactionDetailScreen({
               Motif du rejet
             </Text>
 
-            <TextInput
-              value={rejectReason}
-              onChangeText={(value) => {
-                setRejectReason(value);
 
-                if (rejectReasonError) {
-                  setRejectReasonError(null);
+            <TextInput
+              value={
+                rejectReason
+              }
+
+              onChangeText={(
+                value
+              ) => {
+                setRejectReason(
+                  value
+                );
+
+                if (
+                  rejectReasonError
+                ) {
+                  setRejectReasonError(
+                    null
+                  );
                 }
               }}
+
               placeholder="Ex. paiement non reçu ou informations incorrectes"
-              placeholderTextColor={colors.text.tertiary}
+
+              placeholderTextColor={
+                colors.text.tertiary
+              }
+
               multiline
-              maxLength={500}
+
+              maxLength={
+                500
+              }
+
               textAlignVertical="top"
-              editable={!actionLoading}
+
+              editable={
+                !actionLoading
+              }
+
               style={[
                 local.rejectInput,
+
                 rejectReasonError &&
                   local.rejectInputError,
               ]}
             />
 
-            <View style={local.rejectCounterRow}>
+
+            <View
+              style={
+                local.rejectCounterRow
+              }
+            >
               {rejectReasonError ? (
                 <Text
                   style={[
@@ -1710,7 +1768,9 @@ export default function AdminTransactionDetailScreen({
                     local.rejectErrorText,
                   ]}
                 >
-                  {rejectReasonError}
+                  {
+                    rejectReasonError
+                  }
                 </Text>
               ) : (
                 <Text
@@ -1729,27 +1789,52 @@ export default function AdminTransactionDetailScreen({
                   local.rejectCounter,
                 ]}
               >
-                {rejectReason.length}/500
+                {
+                  rejectReason.length
+                }/500
               </Text>
             </View>
 
-            <View style={local.rejectModalActions}>
-              <View style={{ flex: 1 }}>
+
+            <View
+              style={
+                local.rejectModalActions
+              }
+            >
+              <View
+                style={{
+                  flex: 1,
+                }}
+              >
                 <Button
                   title="Annuler"
                   variant="outline"
-                  disabled={actionLoading}
-                  onPress={closeRejectModal}
+                  disabled={
+                    actionLoading
+                  }
+                  onPress={
+                    closeRejectModal
+                  }
                 />
               </View>
 
-              <View style={{ flex: 1 }}>
+              <View
+                style={{
+                  flex: 1,
+                }}
+              >
                 <Button
                   title="Rejeter"
                   variant="primary"
-                  loading={actionLoading}
-                  disabled={actionLoading}
-                  onPress={submitReject}
+                  loading={
+                    actionLoading
+                  }
+                  disabled={
+                    actionLoading
+                  }
+                  onPress={
+                    submitReject
+                  }
                 />
               </View>
             </View>
@@ -1763,7 +1848,42 @@ export default function AdminTransactionDetailScreen({
 
 /* ============================================================
  * INFO ROW
- * ============================================================
+ * ============================================================ */
+
+function normalizeInfoValue(
+  value
+) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ''
+  ) {
+    return '—';
+  }
+
+  if (
+    typeof value ===
+      'string' ||
+    typeof value ===
+      'number' ||
+    typeof value ===
+      'boolean'
+  ) {
+    return String(value);
+  }
+
+  try {
+    const json =
+      JSON.stringify(
+        value
+      );
+
+    return json || '—';
+  } catch {
+    return '—';
+  }
+}
+
 
 function InfoRow({
   icon,
@@ -1780,7 +1900,9 @@ function InfoRow({
       ]}
     >
       <Ionicons
-        name={icon}
+        name={
+          icon
+        }
         size={14}
         color={
           colors.text.tertiary
@@ -1794,9 +1916,14 @@ function InfoRow({
             flex: 1,
           },
         ]}
+        numberOfLines={
+          2
+        }
       >
         {
-          label
+          normalizeInfoValue(
+            label
+          )
         }
       </Text>
 
@@ -1806,12 +1933,22 @@ function InfoRow({
           {
             fontWeight:
               fontWeights.regular,
+
+            flexShrink:
+              1,
+
+            maxWidth:
+              '60%',
           },
         ]}
-        numberOfLines={1}
+        numberOfLines={
+          2
+        }
       >
         {
-          value
+          normalizeInfoValue(
+            value
+          )
         }
       </Text>
     </View>
@@ -1870,7 +2007,9 @@ function StepRow({
           name={
             icon
           }
-          size={16}
+          size={
+            16
+          }
           color={
             color
           }
@@ -1923,7 +2062,9 @@ function StepRow({
                   .primary,
             },
           ]}
-          numberOfLines={1}
+          numberOfLines={
+            1
+          }
         >
           {
             step.label
@@ -1961,103 +2102,196 @@ const local =
 
     modalOverlay: {
       flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: spacing.md,
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      paddingHorizontal:
+        spacing.md,
     },
 
     modalBackdrop: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(15, 23, 42, 0.55)',
+
+      backgroundColor:
+        'rgba(15, 23, 42, 0.55)',
     },
 
     rejectModal: {
-      width: '100%',
-      maxWidth: 520,
-      backgroundColor: colors.background.surface,
-      borderRadius: radii.lg || radii.md,
-      padding: spacing.lg,
+      width:
+        '100%',
+
+      maxWidth:
+        520,
+
+      backgroundColor:
+        colors.background.surface,
+
+      borderRadius:
+        radii.lg ||
+        radii.md,
+
+      padding:
+        spacing.lg,
+
       ...shadows.modal,
     },
 
     rejectModalHeader: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacing.sm,
-      marginBottom: spacing.lg,
+      flexDirection:
+        'row',
+
+      alignItems:
+        'flex-start',
+
+      gap:
+        spacing.sm,
+
+      marginBottom:
+        spacing.lg,
     },
 
     rejectModalIcon: {
-      width: 42,
-      height: 42,
-      borderRadius: radii.circle,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: colors.error.light,
+      width:
+        42,
+
+      height:
+        42,
+
+      borderRadius:
+        radii.circle,
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      backgroundColor:
+        colors.error.light,
     },
 
     rejectModalTitle: {
-      marginBottom: 3,
+      marginBottom:
+        3,
     },
 
     rejectModalSubtitle: {
-      color: colors.text.secondary,
-      lineHeight: lineHeights.md,
+      color:
+        colors.text.secondary,
+
+      lineHeight:
+        lineHeights.md,
     },
 
     rejectInputLabel: {
-      fontWeight: fontWeights.semiBold,
-      marginBottom: spacing.xs,
+      fontWeight:
+        fontWeights.semiBold,
+
+      marginBottom:
+        spacing.xs,
     },
 
     rejectInput: {
-      minHeight: 120,
-      borderWidth: 1,
-      borderColor: colors.border.default,
-      borderRadius: radii.md,
-      backgroundColor: colors.background.default,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.md,
-      color: colors.text.primary,
-      fontSize: 14,
-      lineHeight: 20,
+      minHeight:
+        120,
+
+      borderWidth:
+        1,
+
+      borderColor:
+        colors.border.default,
+
+      borderRadius:
+        radii.md,
+
+      backgroundColor:
+        colors.background.default,
+
+      paddingHorizontal:
+        spacing.md,
+
+      paddingVertical:
+        spacing.md,
+
+      color:
+        colors.text.primary,
+
+      fontSize:
+        14,
+
+      lineHeight:
+        20,
     },
 
     rejectInputError: {
-      borderColor: colors.error.default,
+      borderColor:
+        colors.error.default,
     },
 
     rejectCounterRow: {
-      minHeight: 36,
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      gap: spacing.sm,
-      marginTop: spacing.xs,
+      minHeight:
+        36,
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'flex-start',
+
+      justifyContent:
+        'space-between',
+
+      gap:
+        spacing.sm,
+
+      marginTop:
+        spacing.xs,
     },
 
     rejectHelpText: {
       flex: 1,
-      color: colors.text.secondary,
-      lineHeight: lineHeights.md,
+
+      color:
+        colors.text.secondary,
+
+      lineHeight:
+        lineHeights.md,
     },
 
     rejectErrorText: {
       flex: 1,
-      color: colors.error.default,
-      lineHeight: lineHeights.md,
+
+      color:
+        colors.error.default,
+
+      lineHeight:
+        lineHeights.md,
     },
 
     rejectCounter: {
-      color: colors.text.tertiary,
-      minWidth: 48,
-      textAlign: 'right',
+      color:
+        colors.text.tertiary,
+
+      minWidth:
+        48,
+
+      textAlign:
+        'right',
     },
 
     rejectModalActions: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-      marginTop: spacing.md,
+      flexDirection:
+        'row',
+
+      gap:
+        spacing.sm,
+
+      marginTop:
+        spacing.md,
     },
 
     scroll: {
@@ -2183,24 +2417,16 @@ const local =
 
     card: {
       borderRadius:
-        components
-          .card
-          .radius,
+        components.card.radius,
 
       backgroundColor:
-        components
-          .card
-          .backgroundColor,
+        components.card.backgroundColor,
 
       borderWidth:
-        components
-          .card
-          .borderWidth,
+        components.card.borderWidth,
 
       borderColor:
-        components
-          .card
-          .borderColor,
+        components.card.borderColor,
 
       padding:
         spacing.md,

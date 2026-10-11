@@ -3,7 +3,6 @@ import React, {
 } from 'react';
 
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,10 +16,10 @@ import {
 
 import {
   colors,
+  countries,
   radii,
   spacing,
   typography,
-  countries,
 } from '../../theme/theme';
 
 import Header from
@@ -42,7 +41,9 @@ import {
 import {
   buildInternationalPhone,
   digitsOnlyPhone,
+  getCountryKeyFromPhone,
 } from '../../utils/phone';
+
 
 const METHODS = [
   {
@@ -50,17 +51,20 @@ const METHODS = [
     label: 'Mobile Money',
     icon: 'phone-portrait-outline',
   },
+
   {
     key: 'bank_transfer',
     label: 'Compte bancaire',
     icon: 'business-outline',
   },
+
   {
     key: 'partner_agent',
     label: 'Retrait partenaire',
     icon: 'people-outline',
   },
 ];
+
 
 export default function WithdrawalMethodScreen({
   route,
@@ -71,56 +75,88 @@ export default function WithdrawalMethodScreen({
     feeAmount,
   } = route.params;
 
+
   const {
     profile,
   } = useAuth();
 
-  const defaultCountry =
-    profile?.country &&
+
+  /*
+   * ==========================================================
+   * COUNTRY CODE FIXE DU COMPTE
+   * ==========================================================
+   */
+
+  const loginCountryKey =
+    getCountryKeyFromPhone(
+      profile?.whatsapp_number
+    );
+
+
+  const fixedRecipientCountry =
+    loginCountryKey &&
     countries[
-      profile.country
+      loginCountryKey
     ]
-      ? profile.country
-      : 'cameroun';
+      ? loginCountryKey
+      : profile?.country &&
+          countries[
+            profile.country
+          ]
+        ? profile.country
+        : 'cameroun';
+
+
+  const fixedRecipientDialCode =
+    countries[
+      fixedRecipientCountry
+    ]?.dialCode ||
+    '+237';
+
+
+  /*
+   * ==========================================================
+   * ÉTAT
+   * ==========================================================
+   */
 
   const [
     method,
     setMethod,
-  ] =
-    useState(
-      'mobile_money'
-    );
+  ] = useState(
+    'mobile_money'
+  );
+
 
   const [
     recipientName,
     setRecipientName,
-  ] =
-    useState('');
+  ] = useState('');
+
 
   const [
     recipientMobileNumber,
     setRecipientMobileNumber,
-  ] =
-    useState('');
+  ] = useState('');
 
-  const [
-    recipientCountry,
-    setRecipientCountry,
-  ] =
-    useState(
-      defaultCountry
-    );
 
   const [
     errors,
     setErrors,
-  ] =
-    useState({});
+  ] = useState({});
+
+
+  /*
+   * ==========================================================
+   * CONTINUER
+   * ==========================================================
+   */
 
   const handleContinue =
     () => {
       const nextErrors =
         {};
+
 
       if (
         !recipientName.trim()
@@ -128,6 +164,7 @@ export default function WithdrawalMethodScreen({
         nextErrors.recipientName =
           'Nom du bénéficiaire requis.';
       }
+
 
       if (
         method ===
@@ -150,6 +187,7 @@ export default function WithdrawalMethodScreen({
           'Numéro de compte requis.';
       }
 
+
       if (
         Object.keys(
           nextErrors
@@ -162,11 +200,14 @@ export default function WithdrawalMethodScreen({
         return;
       }
 
+
       navigation.navigate(
         'WithdrawalSummary',
         {
           amount,
+
           feeAmount,
+
           method,
 
           recipientName:
@@ -176,15 +217,13 @@ export default function WithdrawalMethodScreen({
             method ===
             'bank_transfer'
               ? null
-              : recipientCountry,
+              : fixedRecipientCountry,
 
           recipientCountryCode:
             method ===
             'bank_transfer'
               ? null
-              : countries[
-                  recipientCountry
-                ]?.dialCode,
+              : fixedRecipientDialCode,
 
           recipientMobileNumber:
             method ===
@@ -192,11 +231,18 @@ export default function WithdrawalMethodScreen({
               ? recipientMobileNumber.trim()
               : buildInternationalPhone(
                   recipientMobileNumber,
-                  recipientCountry
+                  fixedRecipientCountry
                 ),
         }
       );
     };
+
+
+  /*
+   * ==========================================================
+   * AFFICHAGE
+   * ==========================================================
+   */
 
   return (
     <ScrollView
@@ -211,6 +257,7 @@ export default function WithdrawalMethodScreen({
       <Header
         title="Méthode de retrait"
       />
+
 
       <Text
         style={[
@@ -228,19 +275,23 @@ export default function WithdrawalMethodScreen({
         méthode
       </Text>
 
+
       {METHODS.map(
         (item) => (
           <Pressable
             key={
               item.key
             }
+
             onPress={() =>
               setMethod(
                 item.key
               )
             }
+
             style={[
               styles.row,
+
               method ===
                 item.key &&
                 styles.rowSelected,
@@ -250,12 +301,15 @@ export default function WithdrawalMethodScreen({
               name={
                 item.icon
               }
+
               size={20}
+
               color={
                 colors.icon
                   .default
               }
             />
+
 
             <Text
               style={[
@@ -269,6 +323,7 @@ export default function WithdrawalMethodScreen({
                 item.label
               }
             </Text>
+
 
             {method ===
             item.key ? (
@@ -285,6 +340,7 @@ export default function WithdrawalMethodScreen({
         )
       )}
 
+
       <View
         style={{
           marginTop:
@@ -293,49 +349,68 @@ export default function WithdrawalMethodScreen({
       >
         <Input
           label="Nom du bénéficiaire"
+
           value={
             recipientName
           }
-          onChangeText={(value) => {
+
+          onChangeText={(
+            value
+          ) => {
             setRecipientName(
               value
             );
 
             setErrors(
-              (current) => ({
+              (
+                current
+              ) => ({
                 ...current,
+
                 recipientName:
                   null,
               })
             );
           }}
+
           placeholder="Nom complet"
+
           error={
             errors.recipientName
           }
         />
 
+
         {method ===
         'bank_transfer' ? (
           <Input
             label="Numéro de compte"
+
             value={
               recipientMobileNumber
             }
-            onChangeText={(value) => {
+
+            onChangeText={(
+              value
+            ) => {
               setRecipientMobileNumber(
                 value
               );
 
               setErrors(
-                (current) => ({
+                (
+                  current
+                ) => ({
                   ...current,
+
                   recipientMobileNumber:
                     null,
                 })
               );
             }}
+
             placeholder="Numéro de compte bancaire"
+
             error={
               errors.recipientMobileNumber
             }
@@ -343,49 +418,47 @@ export default function WithdrawalMethodScreen({
         ) : (
           <PhoneNumberInput
             label="Numéro Mobile Money"
+
             value={
               recipientMobileNumber
             }
+
             country={
-              recipientCountry
+              fixedRecipientCountry
             }
-            onChangeCountry={(
+
+            /*
+             * Pas de `onChangeCountry`.
+             *
+             * Le préfixe est donc fixe et correspond au
+             * numéro utilisé pour la connexion.
+             */
+
+            onChangeText={(
               value
             ) => {
-              setRecipientCountry(
-                value
-              );
-
-              setRecipientMobileNumber(
-                ''
-              );
-
-              setErrors(
-                (current) => ({
-                  ...current,
-                  recipientMobileNumber:
-                    null,
-                })
-              );
-            }}
-            onChangeText={(value) => {
               setRecipientMobileNumber(
                 value
               );
 
               setErrors(
-                (current) => ({
+                (
+                  current
+                ) => ({
                   ...current,
+
                   recipientMobileNumber:
                     null,
                 })
               );
             }}
+
             error={
               errors.recipientMobileNumber
             }
           />
         )}
+
 
         {method !==
         'bank_transfer' ? (
@@ -394,17 +467,14 @@ export default function WithdrawalMethodScreen({
               styles.helper
             }
           >
-            L'indicatif{' '}
+            L'indicatif fixe du compte est{' '}
             {
-              countries[
-                recipientCountry
-              ]?.dialCode
-            }{' '}
-            sera enregistré
-            avec le retrait.
+              fixedRecipientDialCode
+            }.
           </Text>
         ) : null}
       </View>
+
 
       <Button
         title="Continuer"
@@ -420,6 +490,13 @@ export default function WithdrawalMethodScreen({
   );
 }
 
+
+/*
+ * ============================================================
+ * STYLES
+ * ============================================================
+ */
+
 const styles =
   StyleSheet.create({
     wrapper: {
@@ -429,6 +506,7 @@ const styles =
         colors.background
           .default,
     },
+
 
     row: {
       flexDirection:
@@ -461,6 +539,7 @@ const styles =
         spacing.md,
     },
 
+
     rowSelected: {
       borderColor:
         colors.brand
@@ -470,11 +549,13 @@ const styles =
         2,
     },
 
+
     helper: {
       ...typography.caption,
 
       color:
-        colors.text.secondary,
+        colors.text
+          .secondary,
 
       marginTop:
         spacing.xs,

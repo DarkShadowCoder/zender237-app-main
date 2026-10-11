@@ -45,11 +45,71 @@ Notifications.setNotificationHandler({
 
 
 function getExpoProjectId() {
+  /*
+   * EAS builds peuvent exposer le projectId via `easConfig`,
+   * tandis que certains manifests Expo/SDK 51 l'exposent via
+   * `expoConfig`, `manifest2` ou `manifest`.
+   *
+   * On conserve plusieurs fallback afin que le même code fonctionne
+   * dans Expo Go, le build preview et le build production.
+   */
   return (
-    Constants?.expoConfig?.extra?.eas?.projectId ||
     Constants?.easConfig?.projectId ||
+    Constants?.expoConfig?.extra?.eas?.projectId ||
+    Constants?.manifest2?.extra?.eas?.projectId ||
+    Constants?.manifest?.extra?.eas?.projectId ||
     null
   );
+}
+
+
+function buildPushRegistrationError(error) {
+  const rawMessage =
+    String(
+      error?.message ||
+      error ||
+      'Impossible d’obtenir le token Expo Push.'
+    );
+
+  /*
+   * Cette erreur apparaît généralement lorsqu'un APK Android
+   * n'a pas été construit avec une configuration FCM valide.
+   *
+   * Le correctif définitif est côté EAS/Firebase ; ici on retourne
+   * un message explicite pour faciliter le diagnostic.
+   */
+  if (
+    rawMessage.includes(
+      'MISSING_INSTANCEID_SERVICE'
+    )
+  ) {
+    const detailed =
+      new Error(
+        'FCM Android n’est pas correctement configuré pour ce build EAS. Vérifiez google-services.json dans le projet et surtout la clé de service FCM v1 enregistrée dans EAS Credentials, puis reconstruisez l’APK.'
+      );
+
+    detailed.code =
+      'FCM_CONFIGURATION_MISSING';
+
+    detailed.cause =
+      error;
+
+    return detailed;
+  }
+
+  const wrapped =
+    new Error(
+      rawMessage
+    );
+
+  wrapped.code =
+    error?.code ||
+    'EXPO_PUSH_TOKEN_FAILED';
+
+  wrapped.cause =
+    error;
+
+  return wrapped;
 }
 
 
@@ -210,17 +270,9 @@ export async function registerForPushNotifications({
       ).data;
 
   } catch (error) {
-    const wrapped =
-      new Error(
-        error?.message ||
-        'Impossible d’obtenir le token Expo Push.'
-      );
-
-    wrapped.code =
-      error?.code ||
-      'EXPO_PUSH_TOKEN_FAILED';
-
-    throw wrapped;
+    throw buildPushRegistrationError(
+      error
+    );
   }
 
 

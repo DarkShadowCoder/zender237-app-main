@@ -44,6 +44,76 @@ const SUPABASE_ANON_KEY =
 
 
 /* ============================================================
+ * FRAIS DE RETRAIT
+ * ============================================================ */
+
+export const WITHDRAWAL_FEE_CUTOFF =
+  50000;
+
+export const WITHDRAWAL_FEE_RATE_UP_TO_CUTOFF =
+  0.05;
+
+export const WITHDRAWAL_FEE_RATE_ABOVE_CUTOFF =
+  0.03;
+
+/**
+ * Retourne le pourcentage de frais applicable à un retrait.
+ *
+ * - 0 à 50 000 inclus : 5 %
+ * - au-dessus de 50 000 : 3 %
+ */
+export function getWithdrawalFeeRate(
+  amount
+) {
+  const numericAmount =
+    Number(amount);
+
+  if (
+    !Number.isFinite(
+      numericAmount
+    ) ||
+    numericAmount <= 0
+  ) {
+    return 0;
+  }
+
+  return numericAmount <=
+    WITHDRAWAL_FEE_CUTOFF
+    ? WITHDRAWAL_FEE_RATE_UP_TO_CUTOFF
+    : WITHDRAWAL_FEE_RATE_ABOVE_CUTOFF;
+}
+
+/**
+ * Calcule les frais de retrait en unités entières.
+ *
+ * Le montant 50 000 est volontairement inclus dans
+ * la tranche à 5 %.
+ */
+export function calculateWithdrawalFee(
+  amount
+) {
+  const numericAmount =
+    Number(amount);
+
+  if (
+    !Number.isFinite(
+      numericAmount
+    ) ||
+    numericAmount <= 0
+  ) {
+    return 0;
+  }
+
+  return Math.round(
+    numericAmount *
+      getWithdrawalFeeRate(
+        numericAmount
+      )
+  );
+}
+
+
+/* ============================================================
  * MOBILE MONEY
  * ============================================================ */
 
@@ -412,6 +482,7 @@ export async function createTransfer({
   return data;
 }
 
+
 /* ============================================================
  * RETRAIT
  * ============================================================ */
@@ -419,11 +490,19 @@ export async function createTransfer({
 /**
  * Crée un retrait puis le passe immédiatement
  * en `under_review`.
+ *
+ * Les frais sont recalculés ici à partir du montant.
+ *
+ * Règle :
+ * - 0 à 50 000 inclus : 5 %
+ * - > 50 000 : 3 %
+ *
+ * Cela évite qu'un montant de frais éventuellement passé
+ * par l'interface utilisateur puisse modifier la règle métier.
  */
 export async function createWithdrawal({
   userId,
   amount,
-  feeAmount,
   recipientMobileNumber,
   recipientName,
   method,
@@ -439,13 +518,17 @@ export async function createWithdrawal({
       amount
     );
 
+  /*
+   * Ne jamais faire confiance au montant de frais fourni par
+   * l’écran client : la règle officielle est recalculée ici.
+   *
+   * 0 -> 50 000 inclus : 5 %
+   * > 50 000           : 3 %
+   */
   const numericFee =
-    feeAmount === null ||
-    feeAmount === undefined
-      ? 0
-      : Number(
-          feeAmount
-        );
+    calculateWithdrawalFee(
+      numericAmount
+    );
 
   if (
     !Number.isFinite(
@@ -455,17 +538,6 @@ export async function createWithdrawal({
   ) {
     throw new Error(
       'Le montant du retrait doit être supérieur à zéro.'
-    );
-  }
-
-  if (
-    !Number.isFinite(
-      numericFee
-    ) ||
-    numericFee < 0
-  ) {
-    throw new Error(
-      'Les frais du retrait sont invalides.'
     );
   }
 

@@ -34,7 +34,7 @@
       "googleServicesFile": "./google-services.json",
 
       "permissions": [
-        "android.permission.NOTIFICATIONS",
+        "android.permission.POST_NOTIFICATIONS",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
@@ -73,6 +73,7 @@
 
     "extra": {
       "supabaseUrl": "https://mrnfofhaubmlxlsimxvc.supabase.co",
+
       "supabaseAnonKey": "sb_publishable_OcT43EJFCw9yNIzKGCnvVw_orUe6VBD",
 
       "eas": {

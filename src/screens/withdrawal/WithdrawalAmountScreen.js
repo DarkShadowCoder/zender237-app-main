@@ -42,21 +42,20 @@ import {
 import {
   buildInternationalPhone,
   digitsOnlyPhone,
+  getCountryKeyFromPhone,
 } from '../../utils/phone';
+
 
 /*
  * ============================================================
  * PARAMÈTRES
  * ============================================================
- *
- * Le retrait est toujours fait par Mobile Money.
- * Il n'y a donc plus aucun choix de mode dans l'interface.
  */
+
 const WITHDRAWAL_METHOD =
   'mobile_money';
 
 const MAX_PHONE_DIGITS = 9;
-
 const MIN_PHONE_DIGITS = 8;
 
 
@@ -85,6 +84,7 @@ function formatPrice(value) {
   );
 }
 
+
 function normalizePrice(value) {
   const digits =
     String(
@@ -97,6 +97,48 @@ function normalizePrice(value) {
   return digits
     ? Number(digits)
     : 0;
+}
+
+
+/*
+ * ============================================================
+ * FRAIS DE RETRAIT
+ * ============================================================
+ *
+ * 0 à 50 000 inclus : 5 %
+ * Au-dessus de 50 000 : 3 %
+ */
+
+function getWithdrawalFeeRate(
+  amount
+) {
+  return Number(amount) > 50000
+    ? 0.03
+    : 0.05;
+}
+
+
+function calculateWithdrawalFee(
+  amount
+) {
+  const numericAmount =
+    Number(amount);
+
+  if (
+    !Number.isFinite(
+      numericAmount
+    ) ||
+    numericAmount <= 0
+  ) {
+    return 0;
+  }
+
+  return Math.round(
+    numericAmount *
+      getWithdrawalFeeRate(
+        numericAmount
+      )
+  );
 }
 
 
@@ -156,29 +198,6 @@ export default function WithdrawalAmountScreen({
 
   /*
    * ----------------------------------------------------------
-   * PAYS DU NUMÉRO
-   * ----------------------------------------------------------
-   *
-   * On utilise le pays du profil comme valeur initiale.
-   * L'utilisateur peut ensuite le changer directement
-   * dans PhoneNumberInput.
-   */
-
-  const [
-    recipientCountry,
-    setRecipientCountry,
-  ] = useState(
-    profile?.country &&
-    countries[
-      profile.country
-    ]
-      ? profile.country
-      : 'cameroun'
-  );
-
-
-  /*
-   * ----------------------------------------------------------
    * ERREUR
    * ----------------------------------------------------------
    */
@@ -187,6 +206,52 @@ export default function WithdrawalAmountScreen({
     error,
     setError,
   ] = useState(null);
+
+
+  /*
+   * ----------------------------------------------------------
+   * INDICATIF FIXE DU COMPTE
+   * ----------------------------------------------------------
+   *
+   * L'indicatif est imposé par le pays du numéro WhatsApp
+   * utilisé lors de la connexion au compte.
+   *
+   * Exemples :
+   *
+   * +237... -> Cameroun
+   * +224... -> Guinée
+   * +223... -> Mali
+   *
+   * Le champ profile.country reste un fallback pour les anciens
+   * profils dont le numéro enregistré ne permettrait pas de
+   * retrouver le pays.
+   */
+
+  const loginCountryKey =
+    getCountryKeyFromPhone(
+      profile?.whatsapp_number
+    );
+
+
+  const fixedRecipientCountry =
+    loginCountryKey &&
+    countries[
+      loginCountryKey
+    ]
+      ? loginCountryKey
+      : profile?.country &&
+          countries[
+            profile.country
+          ]
+        ? profile.country
+        : 'cameroun';
+
+
+  const fixedRecipientDialCode =
+    countries[
+      fixedRecipientCountry
+    ]?.dialCode ||
+    '+237';
 
 
   /*
@@ -200,21 +265,23 @@ export default function WithdrawalAmountScreen({
       amount
     );
 
-  /*
-   * Frais actuels : 2 %
-   */
+
+  const feeRate =
+    getWithdrawalFeeRate(
+      numericAmount
+    );
+
+
   const feeAmount =
-    numericAmount
-      ? Math.round(
-          numericAmount *
-            0.02
-        )
-      : 0;
+    calculateWithdrawalFee(
+      numericAmount
+    );
+
 
   const available =
     Number(
       wallet?.available_balance ||
-      0
+        0
     );
 
 
@@ -229,6 +296,7 @@ export default function WithdrawalAmountScreen({
       recipientNumber
     );
 
+
   const canContinue =
     useMemo(() => {
       /*
@@ -242,6 +310,7 @@ export default function WithdrawalAmountScreen({
         return false;
       }
 
+
       /*
        * Solde
        */
@@ -253,6 +322,7 @@ export default function WithdrawalAmountScreen({
         return false;
       }
 
+
       /*
        * Nom
        */
@@ -261,6 +331,7 @@ export default function WithdrawalAmountScreen({
       ) {
         return false;
       }
+
 
       /*
        * Téléphone
@@ -272,12 +343,14 @@ export default function WithdrawalAmountScreen({
         return false;
       }
 
+
       if (
         phoneDigits.length >
         MAX_PHONE_DIGITS
       ) {
         return false;
       }
+
 
       return true;
     }, [
@@ -361,6 +434,7 @@ export default function WithdrawalAmountScreen({
         return;
       }
 
+
       if (
         phoneDigits.length >
         MAX_PHONE_DIGITS
@@ -374,29 +448,20 @@ export default function WithdrawalAmountScreen({
 
 
       /*
-       * Construire le numéro complet.
+       * Le numéro est TOUJOURS reconstruit avec le country code
+       * du compte connecté.
        *
-       * Exemple :
-       *
-       * pays = cameroun
-       * numéro = 6 12 34 56 78
-       *
-       * résultat :
-       * +237612345678
+       * Aucun autre country code provenant de la navigation
+       * ou d'un ancien écran n'est utilisé.
        */
+
       const internationalPhone =
         buildInternationalPhone(
           recipientNumber,
-          recipientCountry
+          fixedRecipientCountry
         );
 
 
-      /*
-       * Aller directement au résumé.
-       *
-       * Le mode est fixé côté application.
-       * L'utilisateur ne peut pas le modifier.
-       */
       navigation.navigate(
         'WithdrawalSummary',
         {
@@ -413,13 +478,10 @@ export default function WithdrawalAmountScreen({
             recipientName.trim(),
 
           recipientCountry:
-            recipientCountry,
+            fixedRecipientCountry,
 
           recipientCountryCode:
-            countries[
-              recipientCountry
-            ]?.dialCode ||
-            null,
+            fixedRecipientDialCode,
 
           recipientMobileNumber:
             internationalPhone,
@@ -524,6 +586,7 @@ export default function WithdrawalAmountScreen({
         Combien ?
       </Text>
 
+
       <Input
         label="Montant"
         value={
@@ -573,7 +636,7 @@ export default function WithdrawalAmountScreen({
               typography.caption
             }
           >
-            Frais
+            Frais ({feeRate * 100} %)
           </Text>
 
           <Text
@@ -626,8 +689,9 @@ export default function WithdrawalAmountScreen({
             styles.phoneTitle
           }
         >
-          Dans quel numero recevoir l'argent ?
+          Dans quel numéro recevoir l'argent ?
         </Text>
+
 
         <PhoneNumberInput
           label={null}
@@ -635,38 +699,18 @@ export default function WithdrawalAmountScreen({
             recipientNumber
           }
           country={
-            recipientCountry
+            fixedRecipientCountry
           }
 
           /*
-           * Permet à l'utilisateur
-           * de choisir +237 / +224 / +223
+           * IMPORTANT :
+           *
+           * Aucun `onChangeCountry`.
+           *
+           * PhoneNumberInput considère alors le préfixe comme
+           * non sélectionnable.
            */
-          onChangeCountry={(
-            value
-          ) => {
-            setRecipientCountry(
-              value
-            );
 
-            /*
-             * Le numéro actuel
-             * ne doit pas être gardé
-             * lorsqu'on change de pays.
-             */
-            setRecipientNumber(
-              ''
-            );
-
-            setError(null);
-          }}
-
-          /*
-           * Le composant :
-           * - accepte uniquement les chiffres
-           * - formate automatiquement
-           * - limite à 9 chiffres
-           */
           maxDigits={
             MAX_PHONE_DIGITS
           }
@@ -692,12 +736,13 @@ export default function WithdrawalAmountScreen({
           }
         />
 
+
         <Text
           style={
             styles.phoneHint
           }
         >
-          Choisissez le pays puis écrivez le numéro.
+          Indicatif fixe du compte : {fixedRecipientDialCode}.
         </Text>
       </View>
 
@@ -735,19 +780,19 @@ const styles =
       flex: 1,
 
       backgroundColor:
-        colors
-          .background
+        colors.background
           .default,
     },
 
+
     content: {
       padding:
-        spacing
-          .screenHorizontal,
+        spacing.screenHorizontal,
 
       paddingBottom:
         spacing.xxxl,
     },
+
 
     stepRow: {
       flexDirection:
@@ -763,6 +808,7 @@ const styles =
         spacing.lg,
     },
 
+
     stepActive: {
       width: 28,
 
@@ -771,8 +817,7 @@ const styles =
       borderRadius: 14,
 
       backgroundColor:
-        colors
-          .brand
+        colors.brand
           .primary,
 
       alignItems:
@@ -782,15 +827,15 @@ const styles =
         'center',
     },
 
+
     stepNumber: {
       color:
-        colors
-          .text
-          .inverse,
+        colors.text.inverse,
 
       fontWeight:
         '800',
     },
+
 
     balanceCard: {
       marginTop:
@@ -803,18 +848,17 @@ const styles =
         radii.xl,
 
       backgroundColor:
-        colors
-          .background
+        colors.background
           .surface,
 
       borderWidth:
         1,
 
       borderColor:
-        colors
-          .border
+        colors.border
           .light,
     },
+
 
     title: {
       marginTop:
@@ -823,6 +867,7 @@ const styles =
       marginBottom:
         spacing.md,
     },
+
 
     feeRow: {
       flexDirection:
@@ -841,10 +886,12 @@ const styles =
         spacing.xs,
     },
 
+
     phoneSection: {
       marginTop:
         spacing.xs,
     },
+
 
     phoneTitle: {
       ...typography.caption,
@@ -853,13 +900,12 @@ const styles =
         spacing.xs,
     },
 
+
     phoneHint: {
       ...typography.caption,
 
       color:
-        colors
-          .text
-          .secondary,
+        colors.text.secondary,
 
       marginTop:
         -spacing.xs,
@@ -867,6 +913,7 @@ const styles =
       marginBottom:
         spacing.md,
     },
+
 
     button: {
       marginTop:
