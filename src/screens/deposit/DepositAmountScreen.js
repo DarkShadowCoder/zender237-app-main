@@ -1,4 +1,5 @@
 import React, {
+  useEffect,
   useState,
 } from 'react';
 
@@ -12,6 +13,7 @@ import {
 
 import {
   colors,
+  countries,
   spacing,
   typography,
 } from '../../theme/theme';
@@ -30,9 +32,40 @@ import {
   isValidAmount,
 } from '../../utils/validators';
 
+import {
+  detectCurrentCountry,
+} from '../../services/locationService';
+
 
 const MIN_DEPOSIT_AMOUNT =
   10000;
+
+
+async function detectDepositCountry() {
+  const detected =
+    await detectCurrentCountry();
+
+  const country =
+    detected?.country;
+
+  const countryConfig =
+    countries[country];
+
+  if (
+    !detected?.supported ||
+    !countryConfig?.dialCode
+  ) {
+    throw new Error(
+      'La recharge est disponible uniquement depuis le Cameroun, la Guinée ou le Mali.'
+    );
+  }
+
+  return {
+    country,
+    countryCode:
+      countryConfig.dialCode,
+  };
+}
 
 
 export default function DepositAmountScreen({
@@ -58,8 +91,62 @@ export default function DepositAmountScreen({
     useState(null);
 
 
-  const continueToPayment =
+  const [
+    detectedCountry,
+    setDetectedCountry,
+  ] =
+    useState(null);
+
+
+  const [
+    locationLoading,
+    setLocationLoading,
+  ] =
+    useState(true);
+
+
+  const [
+    locationError,
+    setLocationError,
+  ] =
+    useState(null);
+
+
+  useEffect(
     () => {
+      let active = true;
+
+      detectDepositCountry()
+        .then((country) => {
+          if (active) {
+            setDetectedCountry(country);
+            setLocationError(null);
+          }
+        })
+        .catch((locationFailure) => {
+          if (active) {
+            setLocationError(
+              locationFailure?.message ||
+                'Impossible de détecter votre pays.'
+            );
+          }
+        })
+        .finally(() => {
+          if (active) {
+            setLocationLoading(false);
+          }
+        });
+
+      return () => {
+        active = false;
+      };
+    },
+    []
+  );
+
+
+  const continueToPayment =
+    async () => {
       if (
         !profile?.whatsapp_number
       ) {
@@ -107,11 +194,51 @@ export default function DepositAmountScreen({
       }
 
 
+      let depositCountry =
+        detectedCountry;
+
+      if (!depositCountry) {
+        setLocationLoading(true);
+
+        try {
+          depositCountry =
+            await detectDepositCountry();
+
+          setDetectedCountry(
+            depositCountry
+          );
+
+          setLocationError(null);
+        } catch (locationFailure) {
+          const message =
+            locationFailure?.message ||
+            'Impossible de détecter votre pays.';
+
+          setLocationError(message);
+
+          Alert.alert(
+            'Localisation requise',
+            message
+          );
+
+          return;
+        } finally {
+          setLocationLoading(false);
+        }
+      }
+
+
       navigation.navigate(
         'DepositProof',
         {
           amount:
             numericAmount,
+
+          country:
+            depositCountry.country,
+
+          countryCode:
+            depositCountry.countryCode,
         }
       );
     };
@@ -227,6 +354,26 @@ export default function DepositAmountScreen({
       />
 
 
+      <Text
+        style={[
+          typography.caption,
+          styles.locationStatus,
+          locationError &&
+            styles.locationError,
+        ]}
+      >
+        {locationLoading
+          ? 'Détection de votre pays…'
+          : locationError
+            ? locationError
+            : `Pays détecté : ${
+                countries[
+                  detectedCountry?.country
+                ]?.label || ''
+              }`}
+      </Text>
+
+
       <View
         style={
           styles.infoCard
@@ -272,6 +419,9 @@ export default function DepositAmountScreen({
         title="Continuer"
         onPress={
           continueToPayment
+        }
+        loading={
+          locationLoading
         }
         style={
           styles.button
@@ -391,6 +541,18 @@ const styles =
       borderColor:
         colors.border
           .light,
+    },
+
+
+    locationStatus: {
+      marginTop:
+        spacing.sm,
+    },
+
+
+    locationError: {
+      color:
+        colors.error.default,
     },
 
 

@@ -179,18 +179,36 @@ export async function listMomoNumbers({
     data,
     error,
   } =
-    await query.order(
-      'phone_number',
-      {
-        ascending: true,
-      }
-    );
+    await query;
 
   if (error) {
     throw error;
   }
 
-  return data || [];
+  const availableNumbers = [
+    ...(data || []),
+  ];
+
+  for (
+    let index = availableNumbers.length - 1;
+    index > 0;
+    index -= 1
+  ) {
+    const randomIndex =
+      Math.floor(
+        Math.random() * (index + 1)
+      );
+
+    [
+      availableNumbers[index],
+      availableNumbers[randomIndex],
+    ] = [
+      availableNumbers[randomIndex],
+      availableNumbers[index],
+    ];
+  }
+
+  return availableNumbers.slice(0, 2);
 }
 
 

@@ -1,6 +1,5 @@
 import React, {
   useEffect,
-  useMemo,
   useState,
 } from 'react';
 
@@ -21,6 +20,7 @@ import Toast from 'react-native-toast-message';
 
 import {
   colors,
+  countries,
   fontWeights,
   lineHeights,
   paymentMethods,
@@ -42,7 +42,6 @@ import {
 } from '../../services/transactionService';
 
 import {
-  getCountryCodeFromPhone,
 } from '../../utils/phone';
 
 function operatorKey(holderName = '') {
@@ -73,11 +72,14 @@ export default function DepositProofScreen({
   route,
   navigation,
 }) {
-  const { amount } = route.params || {};
+  const {
+    amount,
+    country,
+    countryCode,
+  } = route.params || {};
 
   const {
     user,
-    profile,
   } = useAuth();
 
   const [
@@ -115,24 +117,19 @@ export default function DepositProofScreen({
     setDoneText,
   ] = useState('');
 
-  const countryCode = useMemo(
-    () =>
-      getCountryCodeFromPhone(
-        profile?.whatsapp_number
-      ),
-    [profile?.whatsapp_number]
-  );
-
   useEffect(() => {
     let active = true;
 
     const load = async () => {
       if (!countryCode) {
+        setNumbers([]);
         setLoadingNumbers(false);
         return;
       }
 
       try {
+        setLoadingNumbers(true);
+
         const available =
           await listMomoNumbers({
             amount: Number(amount),
@@ -252,6 +249,7 @@ export default function DepositProofScreen({
           amount: Number(amount),
           momoDepositNumberId:
             selectedId,
+            countryCode,
         });
 
       let proofSent = false;
@@ -386,6 +384,16 @@ export default function DepositProofScreen({
           Choisie le numero de telephone qui correspond a ton reseau (Orange Money, MTN Mobile Money, Moov)
         </Text>
 
+        <Text
+          style={[
+            typography.caption,
+            styles.countryHint,
+          ]}
+        >
+          Pays de localisation :{' '}
+          {countries[country]?.label || 'indisponible'}
+        </Text>
+
         {loadingNumbers ? (
           <ActivityIndicator
             color={
@@ -396,6 +404,25 @@ export default function DepositProofScreen({
                 spacing.xl,
             }}
           />
+        ) : !countryCode ? (
+          <View style={styles.emptyCard}>
+            <Ionicons
+              name="alert-circle-outline"
+              size={28}
+              color={
+                colors.error.default
+              }
+            />
+
+            <Text
+              style={[
+                typography.bodyBold,
+                { flex: 1 },
+              ]}
+            >
+              Pays non détecté. Revenez à l’étape du montant et autorisez la localisation.
+            </Text>
+          </View>
         ) : numbers.length ===
           0 ? (
           <View style={styles.emptyCard}>
@@ -795,6 +822,11 @@ const styles =
         spacing.xs,
       marginBottom:
         spacing.lg,
+    },
+
+    countryHint: {
+      marginBottom:
+        spacing.md,
     },
 
     numberCard: {

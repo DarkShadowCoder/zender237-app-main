@@ -66,7 +66,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Zender237 utilise votre position uniquement pendant un transfert pour déterminer votre pays et appliquer le tarif correspondant."
+          "locationWhenInUsePermission": "Zender237 utilise votre position pendant un transfert ou une recharge pour déterminer votre pays et afficher les options correspondantes."
         }
       ]
     ],
