@@ -55,9 +55,7 @@ async function detectDepositCountry() {
     !detected?.supported ||
     !countryConfig?.dialCode
   ) {
-    throw new Error(
-      'La recharge est disponible uniquement depuis le Cameroun, la Guinée ou le Mali.'
-    );
+    return null;
   }
 
   return {
@@ -120,14 +118,17 @@ export default function DepositAmountScreen({
         .then((country) => {
           if (active) {
             setDetectedCountry(country);
-            setLocationError(null);
+            setLocationError(
+              country
+                ? null
+                : 'Pays non pris en charge ; les numéros MoMo ne seront pas filtrés par pays.'
+            );
           }
         })
         .catch((locationFailure) => {
           if (active) {
             setLocationError(
-              locationFailure?.message ||
-                'Impossible de détecter votre pays.'
+              `${locationFailure?.message || 'Impossible de détecter votre pays.'} Les numéros MoMo ne seront pas filtrés par pays.`
             );
           }
         })
@@ -194,40 +195,6 @@ export default function DepositAmountScreen({
       }
 
 
-      let depositCountry =
-        detectedCountry;
-
-      if (!depositCountry) {
-        setLocationLoading(true);
-
-        try {
-          depositCountry =
-            await detectDepositCountry();
-
-          setDetectedCountry(
-            depositCountry
-          );
-
-          setLocationError(null);
-        } catch (locationFailure) {
-          const message =
-            locationFailure?.message ||
-            'Impossible de détecter votre pays.';
-
-          setLocationError(message);
-
-          Alert.alert(
-            'Localisation requise',
-            message
-          );
-
-          return;
-        } finally {
-          setLocationLoading(false);
-        }
-      }
-
-
       navigation.navigate(
         'DepositProof',
         {
@@ -235,10 +202,10 @@ export default function DepositAmountScreen({
             numericAmount,
 
           country:
-            depositCountry.country,
+            detectedCountry?.country || null,
 
           countryCode:
-            depositCountry.countryCode,
+            detectedCountry?.countryCode || null,
         }
       );
     };
@@ -419,9 +386,6 @@ export default function DepositAmountScreen({
         title="Continuer"
         onPress={
           continueToPayment
-        }
-        loading={
-          locationLoading
         }
         style={
           styles.button

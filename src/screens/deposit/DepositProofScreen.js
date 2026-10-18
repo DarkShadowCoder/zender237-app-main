@@ -121,19 +121,13 @@ export default function DepositProofScreen({
     let active = true;
 
     const load = async () => {
-      if (!countryCode) {
-        setNumbers([]);
-        setLoadingNumbers(false);
-        return;
-      }
-
       try {
         setLoadingNumbers(true);
 
         const available =
           await listMomoNumbers({
             amount: Number(amount),
-            countryCode,
+            countryCode: countryCode || null,
           });
 
         if (!active) {
@@ -249,7 +243,6 @@ export default function DepositProofScreen({
           amount: Number(amount),
           momoDepositNumberId:
             selectedId,
-            countryCode,
         });
 
       let proofSent = false;
@@ -390,8 +383,8 @@ export default function DepositProofScreen({
             styles.countryHint,
           ]}
         >
-          Pays de localisation :{' '}
-          {countries[country]?.label || 'indisponible'}
+          Filtre par localisation :{' '}
+          {countries[country]?.label || 'aucun (tous les pays)'}
         </Text>
 
         {loadingNumbers ? (
@@ -404,25 +397,6 @@ export default function DepositProofScreen({
                 spacing.xl,
             }}
           />
-        ) : !countryCode ? (
-          <View style={styles.emptyCard}>
-            <Ionicons
-              name="alert-circle-outline"
-              size={28}
-              color={
-                colors.error.default
-              }
-            />
-
-            <Text
-              style={[
-                typography.bodyBold,
-                { flex: 1 },
-              ]}
-            >
-              Pays non détecté. Revenez à l’étape du montant et autorisez la localisation.
-            </Text>
-          </View>
         ) : numbers.length ===
           0 ? (
           <View style={styles.emptyCard}>
